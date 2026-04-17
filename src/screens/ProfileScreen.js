@@ -5,14 +5,40 @@ import {
   ScrollView, 
   Image, 
   StyleSheet, 
-  TouchableOpacity, 
-  SafeAreaView 
+  TouchableOpacity,
+  Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Settings, CreditCard, History, User, ChevronRight, LogOut, Award } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
 import PremiumCard from '../components/PremiumCard';
+import { useAuth } from '../context/AuthContext';
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
+  const { user, signOut } = useAuth();
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+              navigation.replace('Login');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to log out');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -28,8 +54,8 @@ const ProfileScreen = () => {
               <Award size={14} color="#ffffff" fill={Colors.primaryContainer} />
             </View>
           </View>
-          <Text style={styles.userName}>Alex Morgan</Text>
-          <Text style={styles.userEmail}>alex.morgan@premium.com</Text>
+          <Text style={styles.userName}>{user?.user_metadata?.full_name || 'Premium Player'}</Text>
+          <Text style={styles.userEmail}>{user?.email || 'player@turfscore.com'}</Text>
           <View style={styles.tagContainer}>
             <View style={styles.proTag}>
               <Text style={styles.proTagText}>PRO MEMBER</Text>
@@ -74,7 +100,7 @@ const ProfileScreen = () => {
           ))}
         </PremiumCard>
 
-        <TouchableOpacity style={styles.logoutButton}>
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <LogOut size={20} color="#EF4444" />
           <Text style={styles.logoutText}>Sign Out</Text>
         </TouchableOpacity>

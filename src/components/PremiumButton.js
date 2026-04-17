@@ -13,7 +13,11 @@ const PremiumButton = ({ title, onPress, type = 'primary', style }) => {
           end={{ x: 1, y: 1 }}
           style={styles.gradient}
         >
-          <Text style={styles.primaryText}>{title}</Text>
+          {typeof title === 'string' ? (
+            <Text style={styles.primaryText}>{title}</Text>
+          ) : (
+            title
+          )}
         </LinearGradient>
       </TouchableOpacity>
     );
@@ -24,7 +28,11 @@ const PremiumButton = ({ title, onPress, type = 'primary', style }) => {
       onPress={onPress} 
       style={[styles.container, styles.secondary, style]}
     >
-      <Text style={styles.secondaryText}>{title}</Text>
+      {typeof title === 'string' ? (
+        <Text style={styles.secondaryText}>{title}</Text>
+      ) : (
+        title
+      )}
     </TouchableOpacity>
   );
 };

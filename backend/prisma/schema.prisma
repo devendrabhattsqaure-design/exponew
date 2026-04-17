@@ -1,0 +1,52 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String?
+  avatar        String?
+  matchesPlayed Int       @default(0)
+  rating        Float     @default(5.0)
+  xp            Int       @default(0)
+  bookings      Booking[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Turf {
+  id            String    @id @default(uuid())
+  name          String
+  location      String
+  description   String
+  pricePerHour  Float
+  rating        Float     @default(4.5)
+  imageUrl      String?
+  amenities     String[]  // ["Wifi", "Parking", "Shower"]
+  bookings      Booking[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Booking {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  turfId        String
+  turf          Turf      @relation(fields: [turfId], references: [id])
+  bookingDate   DateTime
+  timeSlot      String
+  amount        Float
+  status        String    @default("PAID") // PAID, CANCELLED
+  razorpayId    String?
+  createdAt     DateTime  @default(now())
+}

@@ -6,9 +6,9 @@ import {
   Image, 
   StyleSheet, 
   TouchableOpacity, 
-  SafeAreaView,
   StatusBar
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, MapPin, Star, Bell, Filter, Trophy, Target, Zap } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
 import PremiumCard from '../components/PremiumCard';

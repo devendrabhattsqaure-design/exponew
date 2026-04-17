@@ -6,9 +6,9 @@ import {
   FlatList, 
   Dimensions, 
   Image, 
-  TouchableOpacity,
-  SafeAreaView
+  TouchableOpacity
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/Colors';
 import PremiumButton from '../components/PremiumButton';
 import { ChevronRight } from 'lucide-react-native';

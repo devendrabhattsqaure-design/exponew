@@ -1,19 +1,74 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
   TextInput, 
   TouchableOpacity,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/Colors';
 import PremiumButton from '../components/PremiumButton';
-import { Mail, Lock, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, Globe as Google } from 'lucide-react-native';
+import { supabase } from '../config/supabase';
+import { useAuth } from '../context/AuthContext';
+
+const BACKEND_URL = 'http://192.168.18.23:5000/api/auth/sync';
 
 const LoginScreen = ({ navigation }) => {
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth(); // Global auth state
+
+  const handleOAuthLogin = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'exponew://login',
+        },
+      });
+
+      if (error) throw error;
+      
+      // Note: In real production, the session check happens after redirect
+      // For this UI mockup, we simulate the success and sync
+      handleSyncUser({
+        id: 'mock-uuid-123',
+        email: 'player@example.com',
+        name: 'Pro Player',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e'
+      });
+
+    } catch (error) {
+      Alert.alert('Error', error.message);
+      setLoading(false);
+    }
+  };
+
+  const handleSyncUser = async (userData) => {
+    try {
+      const response = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+
+      if (response.ok) {
+        navigation.replace('Main');
+      }
+    } catch (error) {
+      console.error('Backend sync failed', error);
+      navigation.replace('Main'); // Fallback to main app even if sync fails in prototype
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -50,10 +105,25 @@ const LoginScreen = ({ navigation }) => {
           </TouchableOpacity>
 
           <PremiumButton 
-            title="Sign In"
+            title={loading ? <ActivityIndicator color="#fff" /> : "Sign In"}
             onPress={() => navigation.replace('Main')}
             style={styles.loginBtn}
           />
+
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.divider} />
+          </View>
+
+          <TouchableOpacity 
+            style={styles.googleBtn} 
+            onPress={handleOAuthLogin}
+            disabled={loading}
+          >
+            <Google size={20} color={Colors.onBackground} />
+            <Text style={styles.googleBtnText}>Continue with Google</Text>
+          </TouchableOpacity>
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account? </Text>
@@ -124,6 +194,38 @@ const styles = StyleSheet.create({
   loginBtn: {
     width: '100%',
     height: 64,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 32,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.surfaceContainer,
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: Colors.onSurfaceVariant,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 64,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.surfaceContainer,
+    backgroundColor: '#fff',
+  },
+  googleBtnText: {
+    marginLeft: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.onBackground,
   },
   footer: {
     flexDirection: 'row',

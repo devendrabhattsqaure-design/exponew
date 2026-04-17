@@ -1,20 +1,74 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
-  SafeAreaView, 
   TextInput, 
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/Colors';
 import PremiumButton from '../components/PremiumButton';
 import { User, Mail, Lock, Phone } from 'lucide-react-native';
+import { supabase } from '../config/supabase';
+
+const BACKEND_URL = 'http://192.168.18.23:5000/api/auth/sync';
 
 const SignUpScreen = ({ navigation }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSignUp = async () => {
+    if (!email || !password || !name) {
+      Alert.alert('Error', 'Please fill all fields');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Sign up on Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // 2. Sync with Backend Database
+        await syncWithBackend(data.user.id, email, name);
+        Alert.alert('Success', 'Account created successfully!');
+        navigation.replace('Main');
+      }
+    } catch (error) {
+      Alert.alert('Sign Up Failed', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const syncWithBackend = async (id, email, name) => {
+    try {
+      await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, email, name })
+      });
+    } catch (error) {
+      console.error('Backend sync failed:', error);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -36,6 +90,8 @@ const SignUpScreen = ({ navigation }) => {
               <TextInput 
                 placeholder="Full Name"
                 placeholderTextColor={Colors.onSurfaceVariant + '80'}
+                value={name}
+                onChangeText={setName}
                 style={styles.input}
               />
             </View>
@@ -45,16 +101,10 @@ const SignUpScreen = ({ navigation }) => {
               <TextInput 
                 placeholder="Email address"
                 placeholderTextColor={Colors.onSurfaceVariant + '80'}
-                style={styles.input}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Phone size={20} color={Colors.onSurfaceVariant} style={styles.icon} />
-              <TextInput 
-                placeholder="Phone Number"
-                placeholderTextColor={Colors.onSurfaceVariant + '80'}
-                keyboardType="phone-pad"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
                 style={styles.input}
               />
             </View>
@@ -64,14 +114,16 @@ const SignUpScreen = ({ navigation }) => {
               <TextInput 
                 placeholder="Create Password"
                 placeholderTextColor={Colors.onSurfaceVariant + '80'}
+                value={password}
+                onChangeText={setPassword}
                 secureTextEntry
                 style={styles.input}
               />
             </View>
 
             <PremiumButton 
-              title="Create Account"
-              onPress={() => navigation.replace('Main')}
+              title={loading ? <ActivityIndicator color="#fff" /> : "Create Account"}
+              onPress={handleSignUp}
               style={styles.signUpBtn}
             />
 

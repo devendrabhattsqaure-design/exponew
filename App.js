@@ -13,6 +13,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import BookingSuccessScreen from './src/screens/BookingSuccessScreen';
 import AttractiveBottomTab from './src/components/AttractiveBottomTab';
 import AnimatedScreenWrapper from './src/components/AnimatedScreenWrapper';
+import { AuthProvider } from './src/context/AuthContext';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -52,19 +53,21 @@ const TabNavigator = () => (
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator 
-        initialRouteName="Splash"
-        screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
-      >
-        <Stack.Screen name="Splash" component={SplashScreen} />
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="SignUp" component={SignUpScreen} />
-        <Stack.Screen name="Main" component={TabNavigator} />
-        <Stack.Screen name="TurfDetail" component={TurfDetailScreen} />
-        <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <AuthProvider>
+      <NavigationContainer>
+        <Stack.Navigator 
+          initialRouteName="Splash"
+          screenOptions={{ headerShown: false, animation: 'slide_from_right' }}
+        >
+          <Stack.Screen name="Splash" component={SplashScreen} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="Main" component={TabNavigator} />
+          <Stack.Screen name="TurfDetail" component={TurfDetailScreen} />
+          <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </AuthProvider>
   );
 }

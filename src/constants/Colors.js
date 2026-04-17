@@ -1,0 +1,16 @@
+export const Colors = {
+  primary: '#006e2f',
+  primaryContainer: '#22c55e',
+  secondary: '#0058be',
+  background: '#fbf9f9',
+  surface: '#fbf9f9',
+  surfaceContainer: '#efeded',
+  surfaceContainerLow: '#f5f3f3',
+  surfaceContainerHighest: '#e3e2e2',
+  onBackground: '#1b1c1c',
+  onSurface: '#1b1c1c',
+  onSurfaceVariant: '#3d4a3d',
+  onPrimary: '#ffffff',
+  outline: '#6d7b6c',
+  gradient: ['#22C55E', '#16A34A'],
+};

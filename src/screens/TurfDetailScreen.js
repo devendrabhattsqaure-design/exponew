@@ -1,24 +1,35 @@
-import React, { useRef, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  Image, 
-  StyleSheet, 
-  TouchableOpacity, 
+import React, { useRef, useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
   Animated,
   StatusBar,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { ArrowLeft, Star, MapPin, Clock, Wifi, ShieldCheck, Coffee } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
 import PremiumButton from '../components/PremiumButton';
 import RazorpayModal from '../components/RazorpayModal';
+import { useAuth } from '../context/AuthContext';
 
-const TurfDetailScreen = ({ navigation }) => {
+const BACKEND_URL = 'http://192.168.18.23:5000/api';
+
+const TurfDetailScreen = ({ route, navigation }) => {
+  // Grab the dynamic turf passed from HomeScreen
+  const { turf } = route.params || {};
+
   const scrollY = useRef(new Animated.Value(0)).current;
   const [showPayment, setShowPayment] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('2024-07-12');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('06:00 PM');
+
+  const { user } = useAuth();
 
   // Header opacity animation
   const headerOpacity = scrollY.interpolate({
@@ -28,11 +39,39 @@ const TurfDetailScreen = ({ navigation }) => {
   });
 
   const handleBooking = () => {
+    if (!turf) return;
     setShowPayment(true);
   };
 
-  const handlePaymentSuccess = () => {
-    navigation.navigate('BookingSuccess');
+  const handlePaymentSuccess = async () => {
+    setShowPayment(false);
+    try {
+      // Create detailed payload linking booking and payment natively
+      const response = await fetch(`${BACKEND_URL}/bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.id,
+          turfId: turf?.id,
+          bookingDate: new Date(selectedDate).toISOString(),
+          timeSlot: selectedTimeSlot,
+          amount: turf?.pricePerHour || 3500,
+          razorpayOrderId: 'rzp_order_' + Math.random().toString(36).substr(2, 9),
+          razorpayPaymentId: 'pay_' + Math.random().toString(36).substr(2, 9),
+          razorpaySignature: 'mock_signature',
+          paymentMethod: 'card' // Dynamic value from Razorpay mockup
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save booking to database');
+      }
+
+      navigation.navigate('BookingSuccess');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Database Sync Error', 'Payment processed but failed to save booking.');
+    }
   };
 
   return (
@@ -40,9 +79,9 @@ const TurfDetailScreen = ({ navigation }) => {
       <StatusBar barStyle="light-content" />
 
       {/* Razorpay Modal Integration */}
-      <RazorpayModal 
+      <RazorpayModal
         visible={showPayment}
-        amount={3500}
+        amount={turf?.pricePerHour || 3500}
         keyId="rzp_test_SRnZ2EKv9ZxBgb"
         onClose={() => setShowPayment(false)}
         onPaymentSuccess={handlePaymentSuccess}
@@ -52,32 +91,32 @@ const TurfDetailScreen = ({ navigation }) => {
       <Animated.View style={[styles.stickyHeader, { opacity: headerOpacity }]}>
         <BlurView intensity={90} tint="light" style={StyleSheet.absoluteFill} />
         <View style={styles.stickyHeaderContent}>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.stickyBack}
           >
             <ArrowLeft size={24} color={Colors.onBackground} />
           </TouchableOpacity>
-          <Text style={styles.stickyTitle}>Emerald Arena</Text>
+          <Text style={styles.stickyTitle}>{turf?.name || 'Loading...'}</Text>
           <View style={{ width: 48 }} />
         </View>
       </Animated.View>
 
-      <Animated.ScrollView 
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { y: scrollY } } }],
           { useNativeDriver: true }
         )}
       >
-        
+
         {/* Header Image */}
         <View style={styles.imageContainer}>
-          <Image 
-            source={require('../assets/detail.png')} 
-            style={styles.image} 
+          <Image
+            source={{ uri: turf?.imageUrl || 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1000&auto=format&fit=crop' }}
+            style={styles.image}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.floatingBack}
             onPress={() => navigation.goBack()}
           >
@@ -88,15 +127,15 @@ const TurfDetailScreen = ({ navigation }) => {
         <View style={styles.content}>
           <View style={styles.headerInfo}>
             <View>
-              <Text style={styles.title}>Emerald Arena</Text>
+              <Text style={styles.title}>{turf?.name || 'Loading...'}</Text>
               <View style={styles.locationContainer}>
                 <MapPin size={16} color={Colors.onSurfaceVariant} />
-                <Text style={styles.locationText}>Downtown District</Text>
+                <Text style={styles.locationText}>{turf?.location || 'Unknown Location'}</Text>
               </View>
             </View>
             <View style={styles.ratingBox}>
               <Star size={16} color="#FFD700" fill="#FFD700" />
-              <Text style={styles.ratingText}>4.9</Text>
+              <Text style={styles.ratingText}>{turf?.rating || 4.5}</Text>
               <Text style={styles.reviewCount}>(128)</Text>
             </View>
           </View>
@@ -105,22 +144,24 @@ const TurfDetailScreen = ({ navigation }) => {
 
           <Text style={styles.sectionTitle}>About the Turf</Text>
           <Text style={styles.description}>
-            Experience play on our world-class FIFA-pro synthetic grass. Emerald Arena offers a unique architectural setting with advanced LED floodlighting and climate-controlled resting zones. Perfect for high-intensity 5-a-side matches.
+            {turf?.description || 'Experience play on our world-class FIFA-pro synthetic grass. Perfect for high-intensity matches.'}
           </Text>
 
           <Text style={styles.sectionTitle}>World Class Amenities</Text>
           <View style={styles.amenities}>
-            {[
-              { icon: Wifi, label: 'Free Wi-Fi' },
-              { icon: Clock, label: 'Shower' },
-              { icon: Coffee, label: 'Cafeteria' },
-              { icon: ShieldCheck, label: 'Parking' }
-            ].map((item, i) => (
+            {turf?.amenities?.map((item, i) => (
               <View key={i} style={styles.amenityItem}>
                 <View style={styles.amenityIcon}>
-                  <item.icon size={20} color={Colors.primaryContainer} />
+                  {item === 'Wifi' && <Wifi size={20} color={Colors.primaryContainer} />}
+                  {item === 'Shower' && <Clock size={20} color={Colors.primaryContainer} />}
+                  {item === 'Cafeteria' && <Coffee size={20} color={Colors.primaryContainer} />}
+                  {item === 'Parking' && <ShieldCheck size={20} color={Colors.primaryContainer} />}
+                  {item === 'Floodlights' && <Coffee size={20} color={Colors.primaryContainer} />}
+                  {item === 'Beverages' && <Coffee size={20} color={Colors.primaryContainer} />}
+                  {item === 'Locker Room' && <ShieldCheck size={20} color={Colors.primaryContainer} />}
+                  {item === 'Equipment Rental' && <Clock size={20} color={Colors.primaryContainer} />}
                 </View>
-                <Text style={styles.amenityLabel}>{item.label}</Text>
+                <Text style={styles.amenityLabel}>{item}</Text>
               </View>
             ))}
           </View>
@@ -152,11 +193,11 @@ const TurfDetailScreen = ({ navigation }) => {
       <View style={styles.footer}>
         <View>
           <Text style={styles.priceLabel}>Price</Text>
-          <Text style={styles.priceValue}>₹3500/hr</Text>
+          <Text style={styles.priceValue}>₹{turf?.pricePerHour || 3500}/hr</Text>
         </View>
-        <PremiumButton 
-          title="Proceed to Pay" 
-          onPress={handleBooking} 
+        <PremiumButton
+          title="Proceed to Pay"
+          onPress={handleBooking}
           style={styles.bookButton}
         />
       </View>

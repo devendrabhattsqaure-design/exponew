@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,7 +6,8 @@ import {
   Image, 
   StyleSheet, 
   TouchableOpacity, 
-  StatusBar
+  StatusBar,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, MapPin, Star, Bell, Filter, Trophy, Target, Zap } from 'lucide-react-native';
@@ -15,9 +16,30 @@ import PremiumCard from '../components/PremiumCard';
 import PremiumButton from '../components/PremiumButton';
 import { useAuth } from '../context/AuthContext';
 
+const BACKEND_URL = 'http://192.168.18.23:5000/api';
+
 const HomeScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const [turfs, setTurfs] = useState([]);
+  const [loadingTurfs, setLoadingTurfs] = useState(true);
+  
   const userName = user?.user_metadata?.full_name || user?.name || user?.email?.split('@')[0] || 'Player';
+
+  useEffect(() => {
+    fetchTurfs();
+  }, []);
+
+  const fetchTurfs = async () => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/turfs`);
+      const data = await response.json();
+      setTurfs(data);
+    } catch (e) {
+      console.log('Error fetching turfs', e);
+    } finally {
+      setLoadingTurfs(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -88,31 +110,38 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Turf Card */}
-        <TouchableOpacity 
-          activeOpacity={0.9} 
-          onPress={() => navigation.navigate('TurfDetail')}
-        >
-          <PremiumCard style={styles.turfCard}>
-            <Image 
-              source={require('../assets/padel.png')} 
-              style={styles.turfImage} 
-            />
-            <View style={styles.turfInfo}>
-              <View style={styles.turfHeader}>
-                <Text style={styles.turfName}>Emerald Arena Complex</Text>
-                <View style={styles.rating}>
-                  <Star size={14} color="#FFD700" fill="#FFD700" />
-                  <Text style={styles.ratingText}>4.9</Text>
+        {/* Dynamic Turf Cards */}
+        {loadingTurfs ? (
+          <ActivityIndicator color={Colors.primary} size="large" style={{ marginVertical: 32 }} />
+        ) : (
+          turfs.map((turf) => (
+            <TouchableOpacity 
+              key={turf.id}
+              activeOpacity={0.9} 
+              onPress={() => navigation.navigate('TurfDetail', { turf })}
+            >
+              <PremiumCard style={styles.turfCard}>
+                <Image 
+                  source={{ uri: turf.imageUrl || 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55' }} 
+                  style={styles.turfImage} 
+                />
+                <View style={styles.turfInfo}>
+                  <View style={styles.turfHeader}>
+                    <Text style={styles.turfName}>{turf.name}</Text>
+                    <View style={styles.rating}>
+                      <Star size={14} color="#FFD700" fill="#FFD700" />
+                      <Text style={styles.ratingText}>{turf.rating}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.locationContainer}>
+                    <MapPin size={14} color={Colors.onSurfaceVariant} />
+                    <Text style={styles.locationText}>{turf.location} • ₹{turf.pricePerHour}/hr</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.locationContainer}>
-                <MapPin size={14} color={Colors.onSurfaceVariant} />
-                <Text style={styles.locationText}>Downtown District • 1.2 km away</Text>
-              </View>
-            </View>
-          </PremiumCard>
-        </TouchableOpacity>
+              </PremiumCard>
+            </TouchableOpacity>
+          ))
+        )}
 
         <PremiumCard style={styles.turfCard}>
           <View style={styles.proBanner}>

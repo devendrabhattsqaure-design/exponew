@@ -3,7 +3,7 @@ const prisma = require('../config/db');
 // Create a new booking after successful payment
 exports.createBooking = async (req, res) => {
   try {
-    const { userId, turfId, bookingDate, timeSlot, amount, razorpayId } = req.body;
+    const { userId, turfId, bookingDate, timeSlot, amount, razorpayOrderId, razorpayPaymentId, razorpaySignature, paymentMethod } = req.body;
 
     const booking = await prisma.booking.create({
       data: {
@@ -12,9 +12,20 @@ exports.createBooking = async (req, res) => {
         bookingDate: new Date(bookingDate),
         timeSlot,
         amount,
-        razorpayId,
-        status: 'PAID'
-      }
+        razorpayId: razorpayPaymentId,
+        status: 'PAID',
+        paymentDetail: {
+          create: {
+            razorpayOrderId,
+            razorpayPaymentId,
+            razorpaySignature,
+            paymentMethod: paymentMethod || "card",
+            amount,
+            status: "SUCCESS"
+          }
+        }
+      },
+      include: { turf: true, paymentDetail: true }
     });
 
     // Award XP to user for booking a match

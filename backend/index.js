@@ -10,20 +10,21 @@ const bookingRoutes = require('./src/routes/bookingRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Database Connection Check
-const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+const prisma = require('./src/config/db');
 
 const checkDB = async () => {
   try {
-    const { error } = await supabase.from('User').select('id').limit(1);
+    await prisma.$connect();
     console.log('-------------------------------------------');
-    console.log('✅ PostgreSQL Database Connected Successfully');
+    console.log('✅ PostgreSQL Database Connected Successfully (via Prisma)');
     console.log('🚀 Backend Sync Engine: READY');
     console.log('-------------------------------------------');
   } catch (err) {
-    console.log('⚠️ Database ready but User table not found yet.');
-    console.log('👉 Please run the SQL script provided in Supabase.');
+    console.log('-------------------------------------------');
+    console.log('❌ Database Connection Failed');
+    console.log('👉 Please check your DATABASE_URL in .env');
+    console.log('-------------------------------------------');
+    console.error(err);
   }
 };
 checkDB();

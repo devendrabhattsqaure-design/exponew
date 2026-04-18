@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,16 +6,42 @@ import {
   Image, 
   StyleSheet, 
   TouchableOpacity,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Settings, CreditCard, History, User, ChevronRight, LogOut, Award } from 'lucide-react-native';
+import { Settings, CreditCard, History, User, ChevronRight, LogOut, Award, Calendar } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
 import PremiumCard from '../components/PremiumCard';
 import { useAuth } from '../context/AuthContext';
 
+const BACKEND_URL = 'http://192.168.18.23:5000/api';
+
 const ProfileScreen = ({ navigation }) => {
   const { user, signOut } = useAuth();
+  const [bookings, setBookings] = useState([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserBookings();
+    }
+  }, [user]);
+
+  const fetchUserBookings = async () => {
+    try {
+      // Use user.id which in our backend matches the database UUID based on the Auth sync
+      const response = await fetch(`${BACKEND_URL}/bookings/user/${user.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setBookings(data);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -81,8 +107,34 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </PremiumCard>
 
+        {/* Recent Bookings Section */}
+        <Text style={styles.sectionTitle}>Recent Bookings</Text>
+        {loadingBookings ? (
+          <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 20 }} />
+        ) : bookings.length > 0 ? (
+          bookings.slice(0, 3).map((booking, index) => (
+            <PremiumCard key={index} style={styles.bookingCard} level="low">
+              <View style={styles.bookingRow}>
+                <View style={styles.bookingIcon}>
+                  <Calendar size={20} color={Colors.primary} />
+                </View>
+                <View style={styles.bookingDetails}>
+                  <Text style={styles.bookingTurf}>{booking.turf?.name || 'Turf Arena'}</Text>
+                  <Text style={styles.bookingTime}>{new Date(booking.bookingDate).toLocaleDateString()} • {booking.timeSlot}</Text>
+                </View>
+                <View style={styles.bookingStatus}>
+                  <Text style={styles.bookingAmount}>₹{booking.amount}</Text>
+                  <Text style={styles.statusText}>{booking.status}</Text>
+                </View>
+              </View>
+            </PremiumCard>
+          ))
+        ) : (
+          <Text style={styles.noBookingsText}>No bookings yet. Time to play!</Text>
+        )}
+
         {/* Settings Menu */}
-        <Text style={styles.sectionTitle}>Account Settings</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Account Settings</Text>
         <PremiumCard style={styles.menuContainer} level="low">
           {[
             { icon: User, label: 'Personal Information', color: '#4F46E5' },
@@ -246,6 +298,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginLeft: 8,
+  },
+  bookingCard: {
+    marginHorizontal: 24,
+    marginBottom: 12,
+    padding: 16,
+  },
+  bookingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bookingIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: Colors.primaryContainer + '30',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  bookingDetails: {
+    flex: 1,
+  },
+  bookingTurf: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.onBackground,
+    marginBottom: 4,
+  },
+  bookingTime: {
+    fontSize: 13,
+    color: Colors.onSurfaceVariant,
+  },
+  bookingStatus: {
+    alignItems: 'flex-end',
+  },
+  bookingAmount: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.onBackground,
+    marginBottom: 4,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  noBookingsText: {
+    marginHorizontal: 24,
+    color: Colors.onSurfaceVariant,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
   }
 });
 

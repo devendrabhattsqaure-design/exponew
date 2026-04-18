@@ -14,16 +14,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/Colors';
 import PremiumButton from '../components/PremiumButton';
-import { User, Mail, Lock, Phone } from 'lucide-react-native';
-import { supabase } from '../config/supabase';
-
-const BACKEND_URL = 'http://192.168.18.23:5000/api/auth/sync';
+import { User, Mail, Lock } from 'lucide-react-native';
+import { useAuth } from '../context/AuthContext';
 
 const SignUpScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
 
   const handleSignUp = async () => {
     if (!email || !password || !name) {
@@ -33,39 +32,13 @@ const SignUpScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      // 1. Sign up on Supabase
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: name }
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        // 2. Sync with Backend Database
-        await syncWithBackend(data.user.id, email, name);
-        Alert.alert('Success', 'Account created successfully!');
-        navigation.replace('Main');
-      }
+      await register(name, email, password);
+      Alert.alert('Success', 'Account created successfully!');
+      navigation.replace('Main');
     } catch (error) {
       Alert.alert('Sign Up Failed', error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const syncWithBackend = async (id, email, name) => {
-    try {
-      await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, email, name })
-      });
-    } catch (error) {
-      console.error('Backend sync failed:', error);
     }
   };
 

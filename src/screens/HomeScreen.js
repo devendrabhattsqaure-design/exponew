@@ -13,8 +13,12 @@ import { Search, MapPin, Star, Bell, Filter, Trophy, Target, Zap } from 'lucide-
 import { Colors } from '../constants/Colors';
 import PremiumCard from '../components/PremiumCard';
 import PremiumButton from '../components/PremiumButton';
+import { useAuth } from '../context/AuthContext';
 
 const HomeScreen = ({ navigation }) => {
+  const { user } = useAuth();
+  const userName = user?.user_metadata?.full_name || user?.name || user?.email?.split('@')[0] || 'Player';
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -24,7 +28,7 @@ const HomeScreen = ({ navigation }) => {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.userName}>Alex Morgan</Text>
+            <Text style={styles.userName}>{userName}</Text>
           </View>
           <TouchableOpacity style={styles.iconButton}>
             <Bell size={24} color={Colors.onBackground} />

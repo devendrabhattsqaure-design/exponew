@@ -17,54 +17,57 @@ import { Mail, Lock, Globe as Google } from 'lucide-react-native';
 import { supabase } from '../config/supabase';
 import { useAuth } from '../context/AuthContext';
 
-const BACKEND_URL = 'http://192.168.18.23:5000/api/auth/sync';
-
 const LoginScreen = ({ navigation }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth(); // Global auth state
+  const { login, syncSso } = useAuth(); // Global auth state
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password');
+      return;
+    }
+    setLoading(true);
+    try {
+      await login(email, password);
+      navigation.replace('Main');
+    } catch (error) {
+      Alert.alert('Login Failed', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleOAuthLogin = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { data, popup, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'exponew://login',
+          redirectTo: 'exponew://login', // Will open deep link setup in app.json
+          skipBrowserRedirect: false,
         },
       });
 
       if (error) throw error;
       
-      // Note: In real production, the session check happens after redirect
-      // For this UI mockup, we simulate the success and sync
-      handleSyncUser({
-        id: 'mock-uuid-123',
-        email: 'player@example.com',
-        name: 'Pro Player',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e'
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+         await syncSso(
+           session.user.id, 
+           session.user.email, 
+           session.user.user_metadata?.full_name || session.user.email.split('@')[0], 
+           session.user.user_metadata?.avatar_url
+         );
+         navigation.replace('Main');
+      } else {
+         throw new Error("Unable to capture SSO session. Please verify Google OAuth login.");
+      }
 
     } catch (error) {
       Alert.alert('Error', error.message);
-      setLoading(false);
-    }
-  };
-
-  const handleSyncUser = async (userData) => {
-    try {
-      const response = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
-      });
-
-      if (response.ok) {
-        navigation.replace('Main');
-      }
-    } catch (error) {
-      console.error('Backend sync failed', error);
-      navigation.replace('Main'); // Fallback to main app even if sync fails in prototype
-    } finally {
       setLoading(false);
     }
   };
@@ -86,6 +89,10 @@ const LoginScreen = ({ navigation }) => {
             <TextInput 
               placeholder="Email address"
               placeholderTextColor={Colors.onSurfaceVariant + '80'}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
               style={styles.input}
             />
           </View>
@@ -96,6 +103,8 @@ const LoginScreen = ({ navigation }) => {
               placeholder="Password"
               placeholderTextColor={Colors.onSurfaceVariant + '80'}
               secureTextEntry
+              value={password}
+              onChangeText={setPassword}
               style={styles.input}
             />
           </View>
@@ -106,7 +115,7 @@ const LoginScreen = ({ navigation }) => {
 
           <PremiumButton 
             title={loading ? <ActivityIndicator color="#fff" /> : "Sign In"}
-            onPress={() => navigation.replace('Main')}
+            onPress={handleLogin}
             style={styles.loginBtn}
           />
 

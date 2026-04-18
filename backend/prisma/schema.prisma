@@ -7,12 +7,14 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id            String    @id @default(uuid())
   email         String    @unique
+  password      String?
   name          String?
   avatar        String?
   matchesPlayed Int       @default(0)
@@ -31,7 +33,7 @@ model Turf {
   pricePerHour  Float
   rating        Float     @default(4.5)
   imageUrl      String?
-  amenities     String[]  // ["Wifi", "Parking", "Shower"]
+  amenities     Json      // ["Wifi", "Parking", "Shower"]
   bookings      Booking[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -48,5 +50,20 @@ model Booking {
   amount        Float
   status        String    @default("PAID") // PAID, CANCELLED
   razorpayId    String?
+  paymentDetail PaymentDetail?
   createdAt     DateTime  @default(now())
+}
+
+model PaymentDetail {
+  id              String    @id @default(uuid())
+  bookingId       String    @unique
+  booking         Booking   @relation(fields: [bookingId], references: [id])
+  razorpayOrderId String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  paymentMethod   String?   // "card", "upi", "netbanking"
+  amount          Float
+  currency        String    @default("INR")
+  status          String    @default("SUCCESS") // SUCCESS, FAILED, PENDING
+  createdAt       DateTime  @default(now())
 }

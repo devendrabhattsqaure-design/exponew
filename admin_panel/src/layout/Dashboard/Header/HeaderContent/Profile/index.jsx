@@ -16,6 +16,8 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 
+import { useNavigate } from 'react-router-dom';
+
 // project imports
 import ProfileTab from './ProfileTab';
 import SettingTab from './SettingTab';
@@ -23,6 +25,7 @@ import Avatar from 'components/@extended/Avatar';
 import MainCard from 'components/MainCard';
 import Transitions from 'components/@extended/Transitions';
 import IconButton from 'components/@extended/IconButton';
+import { useAdminAuth } from 'contexts/AdminAuthContext';
 
 // assets
 import LogoutOutlined from '@ant-design/icons/LogoutOutlined';
@@ -50,6 +53,8 @@ function a11yProps(index) {
 
 export default function Profile() {
   const theme = useTheme();
+  const navigate = useNavigate();
+  const { admin, logout } = useAdminAuth();
 
   const anchorRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -62,6 +67,11 @@ export default function Profile() {
       return;
     }
     setOpen(false);
+  };
+
+  const handleLogout = async () => {
+    logout();
+    navigate('/login');
   };
 
   const [value, setValue] = useState(0);
@@ -86,6 +96,11 @@ export default function Profile() {
           onClick={handleToggle}
         >
           <Avatar alt="profile user" src={avatar1} size="sm" sx={{ '&:hover': { outline: '1px solid', outlineColor: 'primary.main' } }} />
+          {admin && (
+            <Stack direction="row" sx={{ ml: 1, display: { xs: 'none', sm: 'flex' }, alignItems: 'center' }}>
+               <Typography variant="subtitle1" sx={{ ml: 1, fontWeight: 600 }}>{admin.name}</Typography>
+            </Stack>
+          )}
         </ButtonBase>
       </Tooltip>
       <Popper
@@ -117,16 +132,16 @@ export default function Profile() {
                         <Stack direction="row" sx={{ gap: 1.25, alignItems: 'center' }}>
                           <Avatar alt="profile user" src={avatar1} sx={{ width: 32, height: 32 }} />
                           <Stack>
-                            <Typography variant="h6">John Doe</Typography>
+                            <Typography variant="h6">{admin?.name || 'Admin User'}</Typography>
                             <Typography variant="body2" color="text.secondary">
-                              UI/UX Designer
+                              {admin?.role === 'SUPER_ADMIN' ? 'Platform Super Admin' : (admin?.turfName || 'Turf Admin')}
                             </Typography>
                           </Stack>
                         </Stack>
                       </Grid>
                       <Grid>
                         <Tooltip title="Logout">
-                          <IconButton size="large" sx={{ color: 'text.primary' }}>
+                          <IconButton size="large" sx={{ color: 'text.primary' }} onClick={handleLogout}>
                             <LogoutOutlined />
                           </IconButton>
                         </Tooltip>

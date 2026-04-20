@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import useSWR from 'swr';
 
 // material-ui
 import Avatar from '@mui/material/Avatar';
@@ -37,6 +38,8 @@ import avatar2 from 'assets/images/users/avatar-2.png';
 import avatar3 from 'assets/images/users/avatar-3.png';
 import avatar4 from 'assets/images/users/avatar-4.png';
 
+const fetcher = (url) => fetch(url).then((res) => res.json());
+
 // avatar style
 const avatarSX = {
   width: 36,
@@ -60,6 +63,11 @@ export default function DashboardDefault() {
   const [orderMenuAnchor, setOrderMenuAnchor] = useState(null);
   const [analyticsMenuAnchor, setAnalyticsMenuAnchor] = useState(null);
 
+  const { data: turfs } = useSWR(`${import.meta.env.VITE_APP_API_URL}/turfs`, fetcher);
+  const { data: bookings } = useSWR(`${import.meta.env.VITE_APP_API_URL}/bookings`, fetcher);
+
+  const totalSales = bookings?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
+
   const handleOrderMenuClick = (event) => {
     setOrderMenuAnchor(event.currentTarget);
   };
@@ -78,19 +86,19 @@ export default function DashboardDefault() {
     <Grid container rowSpacing={4.5} columnSpacing={2.75}>
       {/* row 1 */}
       <Grid sx={{ mb: -2.25 }} size={12}>
-        <Typography variant="h5">Dashboard</Typography>
+        <Typography variant="h5">Marketplace Overview</Typography>
       </Grid>
       <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-        <AnalyticEcommerce title="Total Page Views" count="4,42,236" percentage={59.3} extra="35,000" />
+        <AnalyticEcommerce title="Total Turfs" count={turfs?.length || '0'} percentage={100} extra="Live" />
       </Grid>
       <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-        <AnalyticEcommerce title="Total Users" count="78,250" percentage={70.5} extra="8,900" />
+        <AnalyticEcommerce title="Active Bookings" count={bookings?.length || '0'} percentage={100} extra="New" />
       </Grid>
       <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-        <AnalyticEcommerce title="Total Order" count="18,800" percentage={27.4} isLoss color="warning" extra="1,943" />
+        <AnalyticEcommerce title="Gross Revenue" count={`₹${totalSales}`} percentage={100} color="success" extra="Collected" />
       </Grid>
       <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-        <AnalyticEcommerce title="Total Sales" count="35,078" percentage={27.4} isLoss color="warning" extra="20,395" />
+        <AnalyticEcommerce title="Avg Price/hr" count="₹800" percentage={10} isLoss color="warning" extra="Market" />
       </Grid>
       <Grid sx={{ display: { sm: 'none', md: 'block', lg: 'none' } }} size={{ md: 8 }} />
       {/* row 2 */}

@@ -19,6 +19,9 @@ import Typography from '@mui/material/Typography';
 import * as Yup from 'yup';
 import { Formik } from 'formik';
 
+import { useNavigate } from 'react-router-dom';
+import { useAdminAuth } from 'contexts/AdminAuthContext';
+
 // project imports
 import IconButton from 'components/@extended/IconButton';
 import AnimateButton from 'components/@extended/AnimateButton';
@@ -31,8 +34,10 @@ import EyeInvisibleOutlined from '@ant-design/icons/EyeInvisibleOutlined';
 
 export default function AuthLogin({ isDemo = false }) {
   const [checked, setChecked] = React.useState(false);
-
   const [showPassword, setShowPassword] = React.useState(false);
+  const navigate = useNavigate();
+  const { login } = useAdminAuth();
+
   const handleClickShowPassword = () => {
     setShowPassword(!showPassword);
   };
@@ -45,20 +50,27 @@ export default function AuthLogin({ isDemo = false }) {
     <>
       <Formik
         initialValues={{
-          email: 'info@codedthemes.com',
-          password: '123456',
+          email: isDemo ? 'superadmin@turf.com' : '',
+          password: isDemo ? 'superpassword123' : '',
           submit: null
         }}
         validationSchema={Yup.object().shape({
           email: Yup.string().email('Must be a valid email').max(255).required('Email is required'),
-          password: Yup.string()
-            .required('Password is required')
-            .test('no-leading-trailing-whitespace', 'Password cannot start or end with spaces', (value) => value === value.trim())
-            .max(10, 'Password must be less than 10 characters')
+          password: Yup.string().required('Password is required')
         })}
+        onSubmit={async (values, { setErrors, setStatus, setSubmitting }) => {
+          try {
+            await login(values.email, values.password);
+            navigate('/dashboard/default');
+          } catch (err) {
+            setStatus({ success: false });
+            setErrors({ submit: err.message });
+            setSubmitting(false);
+          }
+        }}
       >
-        {({ errors, handleBlur, handleChange, touched, values }) => (
-          <form noValidate>
+        {({ errors, handleBlur, handleChange, handleSubmit, isSubmitting, touched, values }) => (
+          <form noValidate onSubmit={handleSubmit}>
             <Grid container spacing={3}>
               <Grid size={12}>
                 <Stack sx={{ gap: 1 }}>
@@ -115,6 +127,11 @@ export default function AuthLogin({ isDemo = false }) {
                   </FormHelperText>
                 )}
               </Grid>
+              {errors.submit && (
+                <Grid size={12}>
+                  <FormHelperText error>{errors.submit}</FormHelperText>
+                </Grid>
+              )}
               <Grid sx={{ mt: -1 }} size={12}>
                 <Stack direction="row" sx={{ gap: 2, alignItems: 'baseline', justifyContent: 'space-between' }}>
                   <FormControlLabel
@@ -136,7 +153,7 @@ export default function AuthLogin({ isDemo = false }) {
               </Grid>
               <Grid size={12}>
                 <AnimateButton>
-                  <Button fullWidth size="large" variant="contained" color="primary">
+                  <Button disableElevation disabled={isSubmitting} fullWidth size="large" type="submit" variant="contained" color="primary">
                     Login
                   </Button>
                 </AnimateButton>

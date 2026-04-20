@@ -5,16 +5,14 @@ exports.createBooking = async (req, res) => {
   try {
     const { userId, turfId, bookingDate, timeSlot, amount, razorpayOrderId, razorpayPaymentId, razorpaySignature, paymentMethod } = req.body;
 
-    // 1. Verify User exists to prevent P2003 Foreign Key errors
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
     if (!userExists) {
       return res.status(401).json({ error: 'User session invalid. Please log out and sign in again.' });
     }
 
     const parsedDate = new Date(bookingDate);
-    parsedDate.setHours(0, 0, 0, 0); // Normalize to midnight for matching
+    parsedDate.setHours(0, 0, 0, 0); 
 
-    // 2. Dynamic slot lookup or creation since new schema requires slotId
     let slot = await prisma.turfSlot.findFirst({
       where: {
         turfId,
@@ -36,7 +34,12 @@ exports.createBooking = async (req, res) => {
       });
     }
 
-    // 3. Create the booking
+    // Update slot status to BOOKED
+    await prisma.turfSlot.update({
+        where: { id: slot.id },
+        data: { status: 'BOOKED' }
+    });
+
     const booking = await prisma.booking.create({
       data: {
         userId,
@@ -59,7 +62,6 @@ exports.createBooking = async (req, res) => {
       include: { turf: true, slot: true, paymentDetail: true }
     });
 
-    // 4. Award XP and update stats
     await prisma.user.update({
       where: { id: userId },
       data: { 
@@ -72,6 +74,84 @@ exports.createBooking = async (req, res) => {
   } catch (error) {
     console.error('CRITICAL Booking Error:', error);
     res.status(500).json({ error: error.message || 'Failed to create booking record' });
+  }
+};
+
+// Cancel a booking
+exports.cancelBooking = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason } = req.body;
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { slot: true, user: true }
+    });
+
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.status === 'CANCELLED') return res.status(400).json({ error: 'Booking already cancelled' });
+
+    // 1. Update Booking Status
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'CANCELLED' }
+    });
+
+    // 2. Make Slot Available again
+    if (booking.slotId) {
+      await prisma.turfSlot.update({
+        where: { id: booking.slotId },
+        data: { status: 'AVAILABLE' }
+      });
+    }
+
+    // 3. Refund to Wallet
+    const amountToRefund = booking.amount;
+    
+    await prisma.wallet.upsert({
+      where: { userId: booking.userId },
+      update: {
+        balance: { increment: amountToRefund },
+        transactions: {
+          create: {
+            amount: amountToRefund,
+            type: 'REFUND',
+            description: `Refund for booking ${bookingId}`,
+            status: 'COMPLETED'
+          }
+        }
+      },
+      create: {
+        userId: booking.userId,
+        balance: amountToRefund,
+        transactions: {
+          create: {
+            amount: amountToRefund,
+            type: 'REFUND',
+            description: `Refund for booking ${bookingId}`,
+            status: 'COMPLETED'
+          }
+        }
+      }
+    });
+
+    // 4. Create Cancellation Request record for tracking
+    await prisma.cancellationRequest.create({
+      data: {
+        bookingId: booking.id,
+        userId: booking.userId,
+        reason: reason || 'User requested cancellation',
+        reasonType: 'PERSONAL',
+        refundAmount: amountToRefund,
+        refundStatus: 'PROCESSED',
+        processedAt: new Date()
+      }
+    });
+
+    res.json({ message: 'Booking cancelled successfully and amount refunded to wallet' });
+  } catch (error) {
+    console.error('Cancellation Error:', error);
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -95,5 +175,18 @@ exports.getUserBookings = async (req, res) => {
     res.json(mapped);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch user bookings' });
+  }
+};
+
+// Get all bookings (Admin)
+exports.getAllBookings = async (req, res) => {
+  try {
+    const bookings = await prisma.booking.findMany({
+      include: { turf: true, user: true, slot: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(bookings);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch all bookings' });
   }
 };

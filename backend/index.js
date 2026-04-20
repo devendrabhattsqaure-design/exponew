@@ -4,6 +4,7 @@ const morgan = require('morgan');
 require('dotenv').config();
 
 const authRoutes = require('./src/routes/authRoutes');
+const adminRoutes = require('./src/routes/adminRoutes');
 const turfRoutes = require('./src/routes/turfRoutes');
 const bookingRoutes = require('./src/routes/bookingRoutes');
 
@@ -22,6 +23,7 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/turfs', turfRoutes);
 app.use('/api/bookings', bookingRoutes);
 

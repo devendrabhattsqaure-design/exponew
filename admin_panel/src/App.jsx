@@ -6,14 +6,18 @@ import ThemeCustomization from 'themes';
 
 import ScrollTop from 'components/ScrollTop';
 
+import { AdminAuthProvider } from 'contexts/AdminAuthContext';
+
 // ==============================|| APP - THEME, ROUTER, LOCAL ||============================== //
 
 export default function App() {
   return (
     <ThemeCustomization>
-      <ScrollTop>
-        <RouterProvider router={router} />
-      </ScrollTop>
+      <AdminAuthProvider>
+        <ScrollTop>
+          <RouterProvider router={router} />
+        </ScrollTop>
+      </AdminAuthProvider>
     </ThemeCustomization>
   );
 }

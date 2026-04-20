@@ -25,7 +25,7 @@ import Toast from 'react-native-toast-message';
 const BACKEND_URL = 'http://192.168.18.23:5000/api';
 
 // ─── Booking Card (memoized) ───────────────────────────────
-const BookingCard = memo(({ booking }) => {
+const BookingCard = memo(({ booking, onCancel }) => {
   const date = new Date(booking.bookingDate);
   const formattedDate = date.toLocaleDateString('en-IN', { 
     day: 'numeric', month: 'short', year: 'numeric' 
@@ -39,6 +39,7 @@ const BookingCard = memo(({ booking }) => {
   };
   
   const statusStyle = statusColors[booking.status] || statusColors.PAID;
+  const isCancelable = booking.status === 'CONFIRMED' || booking.status === 'PAID';
   
   return (
     <PremiumCard style={styles.bookingCard} level="low">
@@ -55,6 +56,16 @@ const BookingCard = memo(({ booking }) => {
             </View>
           ) : null}
           <Text style={styles.bookingTime}>{formattedDate} • {booking.timeSlot}</Text>
+          
+          {isCancelable && (
+            <TouchableOpacity 
+              style={styles.cancelBtnSmall} 
+              onPress={() => onCancel(booking.id)}
+            >
+              <X size={12} color="#EF4444" />
+              <Text style={styles.cancelBtnSmallText}>Cancel Booking</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <View style={styles.bookingStatus}>
           <Text style={styles.bookingAmount}>₹{booking.amount}</Text>
@@ -214,7 +225,7 @@ const PersonalInfoSection = memo(({ user, onSave, saving }) => {
 });
 
 // ─── Booking History Section ────────────────────────────────
-const BookingHistorySection = memo(({ bookings, loading }) => {
+const BookingHistorySection = memo(({ bookings, loading, onCancel }) => {
   if (loading) {
     return (
       <View style={styles.sectionContainer}>
@@ -233,7 +244,7 @@ const BookingHistorySection = memo(({ bookings, loading }) => {
 
       {bookings.length > 0 ? (
         bookings.map((booking) => (
-          <BookingCard key={booking.id} booking={booking} />
+          <BookingCard key={booking.id} booking={booking} onCancel={onCancel} />
         ))
       ) : (
         <PremiumCard style={styles.emptyCard} level="low">
@@ -306,6 +317,38 @@ const ProfileScreen = ({ navigation }) => {
       setSaving(false);
     }
   }, [updateUser]);
+
+  const handleCancelBooking = useCallback(async (bookingId) => {
+    Alert.alert(
+      'Cancel Booking',
+      'Are you sure you want to cancel this booking? The amount will be refunded to your wallet.',
+      [
+        { text: 'No', style: 'cancel' },
+        { 
+          text: 'Yes, Cancel', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${BACKEND_URL}/bookings/${bookingId}/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: 'User cancelled via app' })
+              });
+              
+              if (response.ok) {
+                Toast.show({ type: 'success', text1: 'Booking Cancelled', text2: 'Refund processed to wallet' });
+                fetchUserBookings();
+              } else {
+                throw new Error('Failed to cancel booking');
+              }
+            } catch (error) {
+              Toast.show({ type: 'error', text1: 'Error', text2: error.message });
+            }
+          }
+        }
+      ]
+    );
+  }, [fetchUserBookings]);
 
   const handleLogout = useCallback(async () => {
     Alert.alert(
@@ -404,7 +447,7 @@ const ProfileScreen = ({ navigation }) => {
         {activeTab === 'info' ? (
           <PersonalInfoSection user={user} onSave={handleSaveProfile} saving={saving} />
         ) : (
-          <BookingHistorySection bookings={bookings} loading={loadingBookings} />
+          <BookingHistorySection bookings={bookings} loading={loadingBookings} onCancel={handleCancelBooking} />
         )}
 
         {/* Logout Button */}
@@ -754,6 +797,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginLeft: 8,
+  },
+  cancelBtnSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#EF444410',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  cancelBtnSmallText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#EF4444',
   },
 });
 

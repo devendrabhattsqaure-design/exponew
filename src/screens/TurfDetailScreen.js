@@ -9,6 +9,7 @@ import {
   Animated,
   StatusBar,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { BlurView } from 'expo-blur';
@@ -26,8 +27,10 @@ const TurfDetailScreen = ({ route, navigation }) => {
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const [showPayment, setShowPayment] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('2024-07-12');
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState('06:00 PM');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [loadingSlots, setLoadingSlots] = useState(true);
 
   const { user } = useAuth();
 
@@ -38,39 +41,59 @@ const TurfDetailScreen = ({ route, navigation }) => {
     extrapolate: 'clamp',
   });
 
+  // Fetch dynamic slots
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!turf?.id) return;
+      try {
+        setLoadingSlots(true);
+        const res = await fetch(`${BACKEND_URL}/turfs/${turf.id}/slots?date=${selectedDate}`);
+        const data = await res.json();
+        setAvailableSlots(data);
+        if (data.length > 0) setSelectedTimeSlot(data[0].startTime);
+      } catch (e) {
+        console.log('Error fetching slots', e);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    fetchSlots();
+  }, [turf?.id, selectedDate]);
+
   const handleBooking = () => {
-    if (!turf) return;
+    if (!turf || !selectedTimeSlot) return;
     setShowPayment(true);
   };
 
   const handlePaymentSuccess = async () => {
     setShowPayment(false);
+    const selectedSlotObj = availableSlots.find(s => s.startTime === selectedTimeSlot);
+    const bookingAmount = selectedSlotObj ? selectedSlotObj.price : (turf?.pricePerHour || 3500);
+
     try {
-      // Create detailed payload linking booking and payment natively
       const response = await fetch(`${BACKEND_URL}/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user?.id,
           turfId: turf?.id,
-          bookingDate: new Date(selectedDate).toISOString(),
+          bookingDate: selectedDate,
           timeSlot: selectedTimeSlot,
-          amount: turf?.pricePerHour || 3500,
+          amount: bookingAmount,
           razorpayOrderId: 'rzp_order_' + Math.random().toString(36).substr(2, 9),
           razorpayPaymentId: 'pay_' + Math.random().toString(36).substr(2, 9),
           razorpaySignature: 'mock_signature',
-          paymentMethod: 'card' // Dynamic value from Razorpay mockup
+          paymentMethod: 'upi' 
         })
       });
-
+      const result = await response.json();
       if (!response.ok) {
-        throw new Error('Failed to save booking to database');
+        throw new Error(result.error || 'Failed to save booking');
       }
-
       navigation.navigate('BookingSuccess');
     } catch (error) {
       console.error(error);
-      Toast.show({ type: 'error', text1: 'Sync Error', text2: 'Payment processed but failed to save booking.' });
+      Toast.show({ type: 'error', text1: 'Sync Error', text2: error.message });
     }
   };
 
@@ -168,24 +191,54 @@ const TurfDetailScreen = ({ route, navigation }) => {
 
           <Text style={styles.sectionTitle}>Select Slot</Text>
           <View style={styles.dateSelector}>
-            <Text style={styles.month}>July 2024</Text>
+            <Text style={styles.month}>{new Date(selectedDate).toLocaleString('default', { month: 'long', year: 'numeric' })}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {[12, 13, 14, 15, 16, 17].map((day, i) => (
-                <TouchableOpacity key={i} style={[styles.dateCard, i === 0 && styles.activeDate]}>
-                  <Text style={[styles.dayName, i === 0 && styles.activeText]}>Mon</Text>
-                  <Text style={[styles.dayNum, i === 0 && styles.activeText]}>{day}</Text>
-                </TouchableOpacity>
-              ))}
+              {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
+                const d = new Date();
+                d.setDate(d.getDate() + offset);
+                const isSelected = d.toISOString().split('T')[0] === selectedDate;
+                return (
+                  <TouchableOpacity 
+                    key={offset} 
+                    style={[styles.dateCard, isSelected && styles.activeDate]}
+                    onPress={() => setSelectedDate(d.toISOString().split('T')[0])}
+                  >
+                    <Text style={[styles.dayName, isSelected && styles.activeText]}>
+                      {d.toLocaleString('default', { weekday: 'short' })}
+                    </Text>
+                    <Text style={[styles.dayNum, isSelected && styles.activeText]}>
+                      {d.getDate()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
 
-          <View style={styles.timeSlots}>
-            {['06:00 PM', '07:00 PM', '08:00 PM', '09:00 PM'].map((time, i) => (
-              <TouchableOpacity key={i} style={[styles.timeChip, i === 1 && styles.activeTimeChip]}>
-                <Text style={[styles.timeText, i === 1 && styles.activeText]}>{time}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {loadingSlots ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginVertical: 20 }} />
+          ) : (
+            <View style={styles.timeSlots}>
+              {availableSlots.length > 0 ? (
+                availableSlots.map((slot, i) => {
+                  const isSelected = selectedTimeSlot === slot.startTime;
+                  return (
+                    <TouchableOpacity 
+                      key={slot.id} 
+                      style={[styles.timeChip, isSelected && styles.activeTimeChip]}
+                      onPress={() => setSelectedTimeSlot(slot.startTime)}
+                    >
+                      <Text style={[styles.timeText, isSelected && styles.activeText]}>
+                        {slot.startTime}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <Text style={styles.noSlotsText}>No slots available for this date.</Text>
+              )}
+            </View>
+          )}
         </View>
       </Animated.ScrollView>
 
@@ -421,6 +474,12 @@ const styles = StyleSheet.create({
   },
   bookButton: {
     width: 200,
+  },
+  noSlotsText: {
+    color: Colors.onSurfaceVariant,
+    fontSize: 14,
+    fontStyle: 'italic',
+    paddingVertical: 10,
   }
 });
 

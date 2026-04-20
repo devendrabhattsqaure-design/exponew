@@ -25,8 +25,12 @@ exports.register = async (req, res) => {
         name,
         password: hashedPassword,
         xp: 0,
-        matchesPlayed: 0
-      }
+        matchesPlayed: 0,
+        wallet: {
+          create: { balance: 0 }
+        }
+      },
+      include: { wallet: true }
     });
 
     // Create JWT Payload
@@ -92,8 +96,12 @@ exports.syncUser = async (req, res) => {
         name,
         avatar,
         xp: 0,
-        matchesPlayed: 0
+        matchesPlayed: 0,
+        wallet: {
+          create: { balance: 0 }
+        }
       },
+      include: { wallet: true }
     });
 
     const payload = { userId: user.id };
@@ -115,18 +123,7 @@ exports.getProfile = async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        phone: true,
-        matchesPlayed: true,
-        rating: true,
-        xp: true,
-        createdAt: true,
-        updatedAt: true,
-      }
+      include: { wallet: true }
     });
 
     if (!user) {
@@ -153,18 +150,7 @@ exports.updateProfile = async (req, res) => {
     const user = await prisma.user.update({
       where: { id: req.userId },
       data: updateData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        phone: true,
-        matchesPlayed: true,
-        rating: true,
-        xp: true,
-        createdAt: true,
-        updatedAt: true,
-      }
+      include: { wallet: true }
     });
 
     res.json(user);

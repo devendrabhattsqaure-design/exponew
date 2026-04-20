@@ -75,7 +75,7 @@ const RazorpayModal = ({ visible, onClose, onPaymentSuccess, amount, keyId }) =>
               <ChevronRight size={20} color={Colors.surfaceContainerHighest} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.methodItem, { opacity: 0.6 }]}>
+            <TouchableOpacity style={styles.methodItem} onPress={handlePay}>
               <View style={[styles.methodIcon, { backgroundColor: '#2AD38E' }]}>
                 <Image source={{ uri: 'https://cdn.iconscout.com/icon/free/png-256/free-upi-2085056-1747946.png' }} style={{ width: 24, height: 24 }} />
               </View>

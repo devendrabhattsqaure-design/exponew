@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import PremiumButton from '../components/PremiumButton';
 import { Mail, Lock, Globe as Google } from 'lucide-react-native';
 import { supabase } from '../config/supabase';
 import { useAuth } from '../context/AuthContext';
+import Toast from 'react-native-toast-message';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -25,15 +25,16 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please enter email and password');
+      Toast.show({ type: 'error', text1: 'Missing Fields', text2: 'Please enter email and password' });
       return;
     }
     setLoading(true);
     try {
       await login(email, password);
+      Toast.show({ type: 'success', text1: 'Welcome back!', text2: 'Login successful' });
       navigation.replace('Main');
     } catch (error) {
-      Alert.alert('Login Failed', error.message);
+      Toast.show({ type: 'error', text1: 'Login Failed', text2: error.message });
     } finally {
       setLoading(false);
     }
@@ -61,13 +62,14 @@ const LoginScreen = ({ navigation }) => {
            session.user.user_metadata?.full_name || session.user.email.split('@')[0], 
            session.user.user_metadata?.avatar_url
          );
+         Toast.show({ type: 'success', text1: 'Welcome!', text2: 'Google sign-in successful' });
          navigation.replace('Main');
       } else {
          throw new Error("Unable to capture SSO session. Please verify Google OAuth login.");
       }
 
     } catch (error) {
-      Alert.alert('Error', error.message);
+      Toast.show({ type: 'error', text1: 'OAuth Error', text2: error.message });
       setLoading(false);
     }
   };

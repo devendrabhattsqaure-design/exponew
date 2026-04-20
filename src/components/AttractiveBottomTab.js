@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Text, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Trophy, Bell, Target, User } from 'lucide-react-native';
+import { Trophy, Search, Target, User } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
 
 const AttractiveBottomTab = ({ state, descriptors, navigation }) => {
@@ -29,7 +29,7 @@ const AttractiveBottomTab = ({ state, descriptors, navigation }) => {
               const props = { size: 24, color: isFocused ? Colors.primary : Colors.onSurfaceVariant };
               switch (route.name) {
                 case 'Home': return <Trophy {...props} />;
-                case 'Scores': return <Bell {...props} />;
+                case 'Search': return <Search {...props} />;
                 case 'Stats': return <Target {...props} />;
                 case 'Profile': return <User {...props} />;
                 default: return <Trophy {...props} />;

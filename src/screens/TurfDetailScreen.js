@@ -9,8 +9,8 @@ import {
   Animated,
   StatusBar,
   Platform,
-  Alert
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { BlurView } from 'expo-blur';
 import { ArrowLeft, Star, MapPin, Clock, Wifi, ShieldCheck, Coffee } from 'lucide-react-native';
 import { Colors } from '../constants/Colors';
@@ -70,7 +70,7 @@ const TurfDetailScreen = ({ route, navigation }) => {
       navigation.navigate('BookingSuccess');
     } catch (error) {
       console.error(error);
-      Alert.alert('Database Sync Error', 'Payment processed but failed to save booking.');
+      Toast.show({ type: 'error', text1: 'Sync Error', text2: 'Payment processed but failed to save booking.' });
     }
   };
 

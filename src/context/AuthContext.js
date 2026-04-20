@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../config/supabase';
 
@@ -35,14 +35,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const syncBackend = async (data) => {
+  const syncBackend = useCallback(async (data) => {
     setUser(data.user);
     setToken(data.token);
     await SecureStore.setItemAsync('userToken', data.token);
     await SecureStore.setItemAsync('userData', JSON.stringify(data.user));
-  };
+  }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const res = await fetch(`${BACKEND_URL}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,9 +51,9 @@ export const AuthProvider = ({ children }) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     await syncBackend(data);
-  };
+  }, [syncBackend]);
 
-  const register = async (name, email, password) => {
+  const register = useCallback(async (name, email, password) => {
     const res = await fetch(`${BACKEND_URL}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -62,9 +62,9 @@ export const AuthProvider = ({ children }) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     await syncBackend(data);
-  };
+  }, [syncBackend]);
 
-  const syncSso = async (id, email, name, avatar) => {
+  const syncSso = useCallback(async (id, email, name, avatar) => {
     const res = await fetch(`${BACKEND_URL}/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -73,18 +73,65 @@ export const AuthProvider = ({ children }) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     await syncBackend(data);
-  };
+  }, [syncBackend]);
 
-  const signOut = async () => {
+  // Fetch fresh user profile from backend (used by Profile screen)
+  const refreshUser = useCallback(async () => {
+    if (!token) return null;
+    try {
+      const res = await fetch(`${BACKEND_URL}/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          // Token expired – force logout
+          await signOut();
+          return null;
+        }
+        throw new Error('Failed to fetch profile');
+      }
+      const freshUser = await res.json();
+      setUser(freshUser);
+      await SecureStore.setItemAsync('userData', JSON.stringify(freshUser));
+      return freshUser;
+    } catch (e) {
+      console.log('Failed to refresh user', e);
+      return null;
+    }
+  }, [token]);
+
+  // Update user profile on backend + sync locally
+  const updateUser = useCallback(async (updates) => {
+    if (!token) throw new Error('Not authenticated');
+    const res = await fetch(`${BACKEND_URL}/profile`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(updates)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to update profile');
+    setUser(data);
+    await SecureStore.setItemAsync('userData', JSON.stringify(data));
+    return data;
+  }, [token]);
+
+  const signOut = useCallback(async () => {
     await SecureStore.deleteItemAsync('userToken');
     await SecureStore.deleteItemAsync('userData');
     setUser(null);
     setToken(null);
     await supabase.auth.signOut(); // Clear OAuth if it existed
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    user, token, loading, login, register, syncSso, signOut, refreshUser, updateUser
+  }), [user, token, loading, login, register, syncSso, signOut, refreshUser, updateUser]);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, syncSso, signOut }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

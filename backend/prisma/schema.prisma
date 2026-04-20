@@ -1,69 +1,404 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// This is your complete Turf Booking Platform schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
+// ============================================
+// ENUMS
+// ============================================
+
+enum SportType {
+  CRICKET
+  FOOTBALL
+  BADMINTON
+  BASKETBALL
+  VOLLEYBALL
+}
+
+enum SlotStatus {
+  AVAILABLE
+  BOOKED
+  BLOCKED
+  MAINTENANCE
+  ON_HOLD
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+  REFUNDED
+}
+
+enum DayType {
+  WEEKDAY
+  WEEKEND
+  HOLIDAY
+}
+
+enum TimeSlotType {
+  MORNING
+  AFTERNOON
+  EVENING
+  NIGHT
+}
+
+enum CancellationReason {
+  WEATHER
+  PERSONAL
+  EMERGENCY
+  TURF_ISSUE
+  OTHER
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+}
+
+enum GroupStatus {
+  OPEN
+  FULL
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  REFUND
+  CASHBACK
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMATION
+  REMINDER
+  RAIN_ALERT
+  PRICE_DROP
+  PROMOTION
+  PAYMENT_SUCCESS
+  CANCELLATION
+}
+
+enum OverrideType {
+  HOLIDAY
+  MAINTENANCE
+  SPECIAL_EVENT
+  WEATHER_BLOCK
+}
+
+// ============================================
+// CORE TABLES
+// ============================================
+
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String?
-  name          String?
-  avatar        String?
-  matchesPlayed Int       @default(0)
-  rating        Float     @default(5.0)
-  xp            Int       @default(0)
-  bookings      Booking[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String               @id @default(uuid())
+  email            String               @unique
+  password         String?
+  name             String?
+  avatar           String?
+  phone            String?
+  fcmToken         String?
+  matchesPlayed    Int                  @default(0)
+  rating           Float                @default(5.0)
+  xp               Int                  @default(0)
+  wallet           Wallet?
+  bookings         Booking[]
+  reviews          Review[]
+  groupMemberships GroupMember[]
+  captainGroups    GroupBooking[]       @relation("CaptainBookings")
+  notifications    Notification[]
+  favorites        Favorite[]
+  searches         SearchHistory[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 }
 
 model Turf {
-  id            String    @id @default(uuid())
-  name          String
-  location      String
-  description   String
-  pricePerHour  Float
-  rating        Float     @default(4.5)
-  imageUrl      String?
-  amenities     Json      // ["Wifi", "Parking", "Shower"]
-  bookings      Booking[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String                     @id @default(uuid())
+  name             String
+  location         String
+  description      String
+  city             String
+  state            String
+  category         String    @default("Football")
+  latitude         Float?
+  longitude        Float?
+  sportTypes       SportType[]
+  amenities        Json                       @default("[]")
+  rating           Float                      @default(4.5)
+  images           String[]                   @default([])
+  cancellationPolicy CancellationPolicy?
+  slots            TurfSlot[]
+  pricing          TurfPricing[]
+  reviews          Review[]
+  bookings         Booking[]
+  availabilityOverrides TurfAvailabilityOverride[]
+  favorites        Favorite[]
+  createdAt        DateTime                   @default(now())
+  updatedAt        DateTime                   @updatedAt
+
+  @@index([latitude, longitude])
+}
+
+model TurfSlot {
+  id            String        @id @default(uuid())
+  turfId        String
+  turf          Turf          @relation(fields: [turfId], references: [id], onDelete: Cascade)
+  date          DateTime      @db.Date
+  startTime     String
+  endTime       String
+  status        SlotStatus    @default(AVAILABLE)
+  price         Float
+  bufferBefore  Int           @default(0)
+  bufferAfter   Int           @default(15)
+  booking       Booking?
+
+  @@unique([turfId, date, startTime])
+  @@index([turfId, date, status])
+  @@index([status])
 }
 
 model Booking {
-  id            String    @id @default(uuid())
-  userId        String
-  user          User      @relation(fields: [userId], references: [id])
-  turfId        String
-  turf          Turf      @relation(fields: [turfId], references: [id])
-  bookingDate   DateTime
-  timeSlot      String
-  amount        Float
-  status        String    @default("PAID") // PAID, CANCELLED
-  razorpayId    String?
-  paymentDetail PaymentDetail?
-  createdAt     DateTime  @default(now())
+  id                String               @id @default(uuid())
+  userId            String
+  user              User                 @relation(fields: [userId], references: [id])
+  turfId            String
+  turf              Turf                 @relation(fields: [turfId], references: [id])
+  slotId            String               @unique
+  slot              TurfSlot             @relation(fields: [slotId], references: [id])
+  amount            Float
+  status            BookingStatus        @default(CONFIRMED)
+  razorpayId        String?
+  paymentDetail     PaymentDetail?
+  review            Review?
+  groupBooking      GroupBooking?
+  cancellationRequest CancellationRequest?
+  createdAt         DateTime             @default(now())
+
+  @@index([userId])
+  @@index([turfId])
+  @@index([status])
 }
 
 model PaymentDetail {
-  id              String    @id @default(uuid())
-  bookingId       String    @unique
-  booking         Booking   @relation(fields: [bookingId], references: [id])
-  razorpayOrderId String?
+  id                String    @id @default(uuid())
+  bookingId         String    @unique
+  booking           Booking   @relation(fields: [bookingId], references: [id])
+  razorpayOrderId   String?
   razorpayPaymentId String?
   razorpaySignature String?
-  paymentMethod   String?   // "card", "upi", "netbanking"
-  amount          Float
-  currency        String    @default("INR")
-  status          String    @default("SUCCESS") // SUCCESS, FAILED, PENDING
-  createdAt       DateTime  @default(now())
+  paymentMethod     String?
+  amount            Float
+  currency          String    @default("INR")
+  status            String    @default("SUCCESS")
+  createdAt         DateTime  @default(now())
+}
+
+// ============================================
+// PRICING TABLES
+// ============================================
+
+model TurfPricing {
+  id          String       @id @default(uuid())
+  turfId      String
+  turf        Turf         @relation(fields: [turfId], references: [id], onDelete: Cascade)
+  dayType     DayType
+  timeSlot    TimeSlotType
+  sportType   SportType?
+  price       Float
+  isActive    Boolean      @default(true)
+
+  @@unique([turfId, dayType, timeSlot, sportType])
+}
+
+// ============================================
+// CANCELLATION & REFUND TABLES
+// ============================================
+
+model CancellationPolicy {
+  id                    String   @id @default(uuid())
+  turfId                String   @unique
+  turf                  Turf     @relation(fields: [turfId], references: [id], onDelete: Cascade)
+  freeCancellationHours Int      @default(6)
+  partialRefundPercent  Int      @default(50)
+  rainProtection        Boolean  @default(true)
+  weatherCheckEnabled   Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model CancellationRequest {
+  id            String             @id @default(uuid())
+  bookingId     String             @unique
+  booking       Booking            @relation(fields: [bookingId], references: [id])
+  userId        String
+  user          User               @relation(fields: [userId], references: [id])
+  reason        String
+  reasonType    CancellationReason
+  refundAmount  Float
+  refundStatus  RefundStatus       @default(PENDING)
+  weatherData   Json?
+  createdAt     DateTime           @default(now())
+  processedAt   DateTime?
+
+  @@index([userId])
+  @@index([refundStatus])
+}
+
+// ============================================
+// GROUP BOOKING TABLES
+// ============================================
+
+model GroupBooking {
+  id              String        @id @default(uuid())
+  bookingId       String        @unique
+  booking         Booking       @relation(fields: [bookingId], references: [id])
+  captainId       String
+  captain         User          @relation("CaptainBookings", fields: [captainId], references: [id])
+  totalPlayers    Int           @default(1)
+  playersNeeded   Int
+  pricePerPerson  Float
+  isPublic        Boolean       @default(false)
+  inviteCode      String        @unique @default(uuid())
+  status          GroupStatus   @default(OPEN)
+  members         GroupMember[]
+  createdAt       DateTime      @default(now())
+  expiresAt       DateTime
+}
+
+model GroupMember {
+  id          String        @id @default(uuid())
+  groupId     String
+  group       GroupBooking  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  hasPaid     Boolean       @default(false)
+  paidAmount  Float?
+  joinedAt    DateTime      @default(now())
+
+  @@unique([groupId, userId])
+}
+
+// ============================================
+// WALLET & TRANSACTION TABLES
+// ============================================
+
+model Wallet {
+  id            String        @id @default(uuid())
+  userId        String        @unique
+  user          User          @relation(fields: [userId], references: [id])
+  balance       Float         @default(0)
+  transactions  Transaction[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Transaction {
+  id          String            @id @default(uuid())
+  walletId    String
+  wallet      Wallet            @relation(fields: [walletId], references: [id])
+  amount      Float
+  type        TransactionType
+  description String
+  reference   String?
+  status      TransactionStatus @default(COMPLETED)
+  createdAt   DateTime          @default(now())
+}
+
+// ============================================
+// REVIEW & SOCIAL TABLES
+// ============================================
+
+model Review {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  turfId      String
+  turf        Turf     @relation(fields: [turfId], references: [id], onDelete: Cascade)
+  bookingId   String   @unique
+  booking     Booking  @relation(fields: [bookingId], references: [id])
+  rating      Int
+  comment     String?
+  images      String[] @default([])
+  isVerified  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([turfId])
+  @@index([userId])
+}
+
+// ============================================
+// UTILITY TABLES
+// ============================================
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id])
+  title       String
+  body        String
+  type        NotificationType
+  data        Json?
+  isRead      Boolean          @default(false)
+  sentAt      DateTime
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+model TurfAvailabilityOverride {
+  id          String        @id @default(uuid())
+  turfId      String
+  turf        Turf          @relation(fields: [turfId], references: [id], onDelete: Cascade)
+  date        DateTime      @db.Date
+  reason      String
+  type        OverrideType
+  slots       Json?
+  createdAt   DateTime      @default(now())
+
+  @@unique([turfId, date])
+  @@index([turfId, date])
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  turfId    String
+  turf      Turf     @relation(fields: [turfId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, turfId])
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  query     String
+  location  String?
+  sportType SportType?
+  results   Int
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }

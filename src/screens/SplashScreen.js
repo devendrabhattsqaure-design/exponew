@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image, Animated } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Colors } from '../constants/Colors';
+import { useAuth } from '../context/AuthContext';
 
 const SplashScreen = ({ navigation }) => {
-  const fadeAnim = new Animated.Value(0);
-  const scaleAnim = new Animated.Value(0.8);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     Animated.parallel([
@@ -18,12 +20,25 @@ const SplashScreen = ({ navigation }) => {
         tension: 10,
         useNativeDriver: true,
       })
-    ]).start(() => {
-      setTimeout(() => {
-        navigation.replace('Onboarding');
-      }, 1500);
-    });
+    ]).start();
   }, []);
+
+  // Wait for auth to finish loading, then decide navigation
+  useEffect(() => {
+    if (loading) return; // Still loading from SecureStore
+
+    const timer = setTimeout(() => {
+      if (user) {
+        // User is already logged in → go straight to Main
+        navigation.replace('Main');
+      } else {
+        // Not logged in → show Onboarding/Login
+        navigation.replace('Onboarding');
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [loading, user, navigation]);
 
   return (
     <View style={styles.container}>

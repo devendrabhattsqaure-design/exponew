@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +15,7 @@ import { Colors } from '../constants/Colors';
 import PremiumButton from '../components/PremiumButton';
 import { User, Mail, Lock } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
+import Toast from 'react-native-toast-message';
 
 const SignUpScreen = ({ navigation }) => {
   const [name, setName] = useState('');
@@ -26,17 +26,17 @@ const SignUpScreen = ({ navigation }) => {
 
   const handleSignUp = async () => {
     if (!email || !password || !name) {
-      Alert.alert('Error', 'Please fill all fields');
+      Toast.show({ type: 'error', text1: 'Missing Fields', text2: 'Please fill all fields' });
       return;
     }
 
     setLoading(true);
     try {
       await register(name, email, password);
-      Alert.alert('Success', 'Account created successfully!');
+      Toast.show({ type: 'success', text1: 'Welcome!', text2: 'Account created successfully' });
       navigation.replace('Main');
     } catch (error) {
-      Alert.alert('Sign Up Failed', error.message);
+      Toast.show({ type: 'error', text1: 'Sign Up Failed', text2: error.message });
     } finally {
       setLoading(false);
     }

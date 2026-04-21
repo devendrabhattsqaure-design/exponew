@@ -34,6 +34,7 @@ enum BookingStatus {
   PENDING
   CONFIRMED
   CANCELLED
+  CANCEL_REQUESTED
   COMPLETED
   NO_SHOW
   REFUNDED
@@ -108,6 +109,7 @@ enum OverrideType {
 enum AdminRole {
   SUPER_ADMIN
   TURF_ADMIN
+  EMPLOYEE
 }
 
 // ============================================

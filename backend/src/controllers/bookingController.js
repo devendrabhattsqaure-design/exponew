@@ -77,7 +77,51 @@ exports.createBooking = async (req, res) => {
   }
 };
 
-// Cancel a booking
+// Request cancellation (User)
+exports.requestCancellation = async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { reason } = req.body;
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId }
+    });
+
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+    if (booking.status !== 'CONFIRMED' && booking.status !== 'PENDING') {
+      return res.status(400).json({ error: `Cannot request cancellation for booking with status ${booking.status}` });
+    }
+
+    // Update status to CANCEL_REQUESTED
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: 'CANCEL_REQUESTED' }
+    });
+
+    // Create entry in CancellationRequest table
+    await prisma.cancellationRequest.upsert({
+      where: { bookingId },
+      update: {
+        reason: reason || 'User requested cancellation',
+        refundStatus: 'PENDING'
+      },
+      create: {
+        bookingId: booking.id,
+        userId: booking.userId,
+        reason: reason || 'User requested cancellation',
+        reasonType: 'PERSONAL',
+        refundAmount: booking.amount,
+        refundStatus: 'PENDING'
+      }
+    });
+
+    res.json({ message: 'Cancellation request submitted' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Finalize Cancel a booking (Admin/Employee)
 exports.cancelBooking = async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -135,13 +179,18 @@ exports.cancelBooking = async (req, res) => {
       }
     });
 
-    // 4. Create Cancellation Request record for tracking
-    await prisma.cancellationRequest.create({
-      data: {
+    // 4. Update/Create Cancellation Request record
+    await prisma.cancellationRequest.upsert({
+      where: { bookingId: booking.id },
+      update: {
+        refundStatus: 'PROCESSED',
+        processedAt: new Date()
+      },
+      create: {
         bookingId: booking.id,
         userId: booking.userId,
-        reason: reason || 'User requested cancellation',
-        reasonType: 'PERSONAL',
+        reason: reason || 'Admin cancelled booking',
+        reasonType: 'TURF_ISSUE',
         refundAmount: amountToRefund,
         refundStatus: 'PROCESSED',
         processedAt: new Date()
@@ -161,7 +210,17 @@ exports.getUserBookings = async (req, res) => {
     const { userId } = req.params;
     const bookings = await prisma.booking.findMany({
       where: { userId },
-      include: { turf: true, slot: true },
+      include: { 
+        turf: {
+            select: {
+                id: true,
+                name: true,
+                location: true,
+                images: true
+            }
+        }, 
+        slot: true 
+      },
       orderBy: { createdAt: 'desc' }
     });
     
@@ -178,10 +237,30 @@ exports.getUserBookings = async (req, res) => {
   }
 };
 
-// Get all bookings (Admin)
+// Get all bookings (Admin) with filters
 exports.getAllBookings = async (req, res) => {
   try {
+    const { status, date, turfId } = req.query;
+    const where = {};
+    
+    if (status) where.status = status;
+    if (turfId) where.turfId = turfId;
+    if (date) {
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+        
+        where.slot = {
+            date: {
+                gte: startOfDay,
+                lte: endOfDay
+            }
+        };
+    }
+
     const bookings = await prisma.booking.findMany({
+      where,
       include: { turf: true, user: true, slot: true },
       orderBy: { createdAt: 'desc' }
     });

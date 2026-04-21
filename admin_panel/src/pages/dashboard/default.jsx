@@ -17,6 +17,13 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
 
 // project imports
 import MainCard from 'components/MainCard';
@@ -26,6 +33,7 @@ import ReportAreaChart from 'sections/dashboard/default/ReportAreaChart';
 import UniqueVisitorCard from 'sections/dashboard/default/UniqueVisitorCard';
 import SaleReportCard from 'sections/dashboard/default/SaleReportCard';
 import OrdersTable from 'sections/dashboard/default/OrdersTable';
+import { useAdminAuth } from 'contexts/AdminAuthContext';
 
 // assets
 import EllipsisOutlined from '@ant-design/icons/EllipsisOutlined';
@@ -60,13 +68,17 @@ const actionSX = {
 // ==============================|| DASHBOARD - DEFAULT ||============================== //
 
 export default function DashboardDefault() {
+  const { admin } = useAdminAuth();
   const [orderMenuAnchor, setOrderMenuAnchor] = useState(null);
   const [analyticsMenuAnchor, setAnalyticsMenuAnchor] = useState(null);
 
   const { data: turfs } = useSWR(`${import.meta.env.VITE_APP_API_URL}/turfs`, fetcher);
-  const { data: bookings } = useSWR(`${import.meta.env.VITE_APP_API_URL}/bookings`, fetcher);
+  const { data: stats } = useSWR(
+    admin ? `${import.meta.env.VITE_APP_API_URL}/admin/dashboard/stats?role=${admin.role}&turfId=${admin.turfId || ''}` : null,
+    fetcher
+  );
 
-  const totalSales = bookings?.reduce((acc, curr) => acc + curr.amount, 0) || 0;
+  const isEmployee = admin?.role === 'EMPLOYEE';
 
   const handleOrderMenuClick = (event) => {
     setOrderMenuAnchor(event.currentTarget);
@@ -86,24 +98,50 @@ export default function DashboardDefault() {
     <Grid container rowSpacing={4.5} columnSpacing={2.75}>
       {/* row 1 */}
       <Grid sx={{ mb: -2.25 }} size={12}>
-        <Typography variant="h5">Marketplace Overview</Typography>
+        <Typography variant="h5">
+          {admin?.role === 'SUPER_ADMIN' ? 'Marketplace Overview' : 'Turf Overview'}
+        </Typography>
       </Grid>
       <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
         <AnalyticEcommerce title="Total Turfs" count={turfs?.length || '0'} percentage={100} extra="Live" />
       </Grid>
       <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-        <AnalyticEcommerce title="Active Bookings" count={bookings?.length || '0'} percentage={100} extra="New" />
+        <AnalyticEcommerce title="Total Bookings" count={stats?.totalBookings || '0'} percentage={100} extra="Overall" />
       </Grid>
+      
+      {!isEmployee && (
+        <>
+          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+            <AnalyticEcommerce title="Gross Revenue" count={`₹${stats?.totalRevenue || 0}`} percentage={100} color="success" extra="Collected" />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
+            <AnalyticEcommerce 
+                title="Today's Bookings" 
+                count={stats?.recentBookings?.filter(b => {
+                    const today = new Date().toLocaleDateString();
+                    return b.slot && new Date(b.slot.date).toLocaleDateString() === today;
+                }).length || '0'} 
+                percentage={100} 
+                color="info" 
+                extra="Scheduled" 
+            />
+          </Grid>
+        </>
+      )}
       <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-        <AnalyticEcommerce title="Gross Revenue" count={`₹${totalSales}`} percentage={100} color="success" extra="Collected" />
-      </Grid>
-      <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
-        <AnalyticEcommerce title="Avg Price/hr" count="₹800" percentage={10} isLoss color="warning" extra="Market" />
+        <AnalyticEcommerce 
+            title="Cancellation Requests" 
+            count={stats?.recentBookings?.filter(b => b.status === 'CANCEL_REQUESTED').length || '0'} 
+            percentage={100} 
+            isLoss 
+            color="error" 
+            extra="Action Required" 
+        />
       </Grid>
       <Grid sx={{ display: { sm: 'none', md: 'block', lg: 'none' } }} size={{ md: 8 }} />
       {/* row 2 */}
       <Grid size={{ xs: 12, md: 7, lg: 8 }}>
-        <UniqueVisitorCard />
+        <UniqueVisitorCard monthlyStats={stats?.monthlyStats} weeklyStats={stats?.weeklyStats} />
       </Grid>
       <Grid size={{ xs: 12, md: 5, lg: 4 }}>
         <Grid container sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
@@ -116,12 +154,15 @@ export default function DashboardDefault() {
           <Box sx={{ p: 3, pb: 0 }}>
             <Stack sx={{ gap: 2 }}>
               <Typography variant="h6" color="text.secondary">
-                This Week Statistics
+                Last 7 Days Statistics
               </Typography>
-              <Typography variant="h3">$7,650</Typography>
+              <Typography variant="h3">₹{stats?.weeklyStats?.reduce((sum, s) => sum + s.revenue, 0) || 0}</Typography>
             </Stack>
           </Box>
-          <MonthlyBarChart />
+          <MonthlyBarChart 
+            data={stats?.weeklyStats?.map(s => s.revenue) || []} 
+            labels={stats?.weeklyStats?.map(s => s.day) || []} 
+          />
         </MainCard>
       </Grid>
       {/* row 3 */}
@@ -134,24 +175,43 @@ export default function DashboardDefault() {
             <IconButton onClick={handleOrderMenuClick}>
               <EllipsisOutlined style={{ fontSize: '1.25rem' }} />
             </IconButton>
-            <Menu
-              id="fade-menu"
-              slotProps={{ list: { 'aria-labelledby': 'fade-button' } }}
-              anchorEl={orderMenuAnchor}
-              onClose={handleOrderMenuClose}
-              open={Boolean(orderMenuAnchor)}
-              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-              <MenuItem onClick={handleOrderMenuClose}>Export as CSV</MenuItem>
-              <MenuItem onClick={handleOrderMenuClose}>Export as Excel</MenuItem>
-              <MenuItem onClick={handleOrderMenuClose}>Print Table</MenuItem>
-            </Menu>
           </Grid>
         </Grid>
         <MainCard sx={{ mt: 2 }} content={false}>
-          <OrdersTable />
+          <OrdersTable bookings={stats?.recentBookings || []} />
         </MainCard>
+
+        {admin?.role === 'SUPER_ADMIN' && stats?.turfBreakdown && (
+          <>
+            <Grid container sx={{ alignItems: 'center', justifyContent: 'space-between', mt: 4.5 }}>
+              <Grid>
+                <Typography variant="h5">Turf Revenue Breakdown</Typography>
+              </Grid>
+            </Grid>
+            <MainCard sx={{ mt: 2 }} content={false}>
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Turf Name</TableCell>
+                      <TableCell align="right">Total Bookings</TableCell>
+                      <TableCell align="right">Total Revenue</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {stats.turfBreakdown.map((turf) => (
+                      <TableRow key={turf.name}>
+                        <TableCell>{turf.name}</TableCell>
+                        <TableCell align="right">{turf.bookings}</TableCell>
+                        <TableCell align="right">₹{turf.revenue}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </MainCard>
+          </>
+        )}
       </Grid>
       <Grid size={{ xs: 12, md: 5, lg: 4 }}>
         <Grid container sx={{ alignItems: 'center', justifyContent: 'space-between' }}>

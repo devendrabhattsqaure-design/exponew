@@ -60,81 +60,36 @@ function stableSort(array, comparator) {
   return stabilizedThis.map((el) => el[0]);
 }
 
-const headCells = [
-  {
-    id: 'tracking_no',
-    align: 'left',
-    disablePadding: false,
-    label: 'Tracking No.'
-  },
-  {
-    id: 'name',
-    align: 'left',
-    disablePadding: true,
-    label: 'Product Name'
-  },
-  {
-    id: 'fat',
-    align: 'right',
-    disablePadding: false,
-    label: 'Total Order'
-  },
-  {
-    id: 'carbs',
-    align: 'left',
-    disablePadding: false,
-
-    label: 'Status'
-  },
-  {
-    id: 'protein',
-    align: 'right',
-    disablePadding: false,
-    label: 'Total Amount'
-  }
-];
-
-// ==============================|| ORDER TABLE - HEADER ||============================== //
-
-function OrderTableHead({ order, orderBy }) {
-  return (
-    <TableHead>
-      <TableRow>
-        {headCells.map((headCell) => (
-          <TableCell
-            key={headCell.id}
-            align={headCell.align}
-            padding={headCell.disablePadding ? 'none' : 'normal'}
-            sortDirection={orderBy === headCell.id ? order : false}
-          >
-            {headCell.label}
-          </TableCell>
-        ))}
-      </TableRow>
-    </TableHead>
-  );
-}
+// ==============================|| ORDER STATUS ||============================== //
 
 function OrderStatus({ status }) {
   let color;
   let title;
 
   switch (status) {
-    case 0:
+    case 'PENDING':
       color = 'warning';
       title = 'Pending';
       break;
-    case 1:
+    case 'CONFIRMED':
       color = 'success';
-      title = 'Approved';
+      title = 'Confirmed';
       break;
-    case 2:
+    case 'CANCEL_REQUESTED':
+      color = 'warning';
+      title = 'Cancel Requested';
+      break;
+    case 'CANCELLED':
       color = 'error';
-      title = 'Rejected';
+      title = 'Cancelled';
+      break;
+    case 'COMPLETED':
+      color = 'primary';
+      title = 'Completed';
       break;
     default:
       color = 'primary';
-      title = 'None';
+      title = status;
   }
 
   return (
@@ -145,11 +100,19 @@ function OrderStatus({ status }) {
   );
 }
 
+const headCells = [
+  { id: 'tracking_no', align: 'left', disablePadding: false, label: 'Tracking No.' },
+  { id: 'name', align: 'left', disablePadding: true, label: 'User Name' },
+  { id: 'turf', align: 'left', disablePadding: false, label: 'Turf' },
+  { id: 'status', align: 'left', disablePadding: false, label: 'Status' },
+  { id: 'amount', align: 'right', disablePadding: false, label: 'Amount' }
+];
+
 // ==============================|| ORDER TABLE ||============================== //
 
-export default function OrderTable() {
-  const order = 'asc';
-  const orderBy = 'tracking_no';
+export default function OrderTable({ bookings = [] }) {
+  const order = 'desc';
+  const orderBy = 'createdAt';
 
   return (
     <Box>
@@ -164,33 +127,43 @@ export default function OrderTable() {
         }}
       >
         <Table aria-labelledby="tableTitle">
-          <OrderTableHead order={order} orderBy={orderBy} />
+          <TableHead>
+            <TableRow>
+              {headCells.map((headCell) => (
+                <TableCell key={headCell.id} align={headCell.align}>
+                  {headCell.label}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
           <TableBody>
-            {stableSort(rows, getComparator(order, orderBy)).map((row, index) => {
-              const labelId = `enhanced-table-checkbox-${index}`;
-
-              return (
-                <TableRow
-                  hover
-                  role="checkbox"
-                  sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                  tabIndex={-1}
-                  key={row.tracking_no}
-                >
-                  <TableCell component="th" id={labelId} scope="row">
-                    <Link color="secondary">{row.tracking_no}</Link>
-                  </TableCell>
-                  <TableCell>{row.name}</TableCell>
-                  <TableCell align="right">{row.fat}</TableCell>
-                  <TableCell>
-                    <OrderStatus status={row.carbs} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <NumericFormat value={row.protein} displayType="text" thousandSeparator prefix="$" />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {bookings.map((row, index) => (
+              <TableRow
+                hover
+                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                tabIndex={-1}
+                key={row.id}
+              >
+                <TableCell>
+                  <Link color="secondary">{row.id.substring(0, 8)}</Link>
+                </TableCell>
+                <TableCell>{row.user?.name || 'Guest'}</TableCell>
+                <TableCell>{row.turf?.name || 'Unknown'}</TableCell>
+                <TableCell>
+                  <OrderStatus status={row.status} />
+                </TableCell>
+                <TableCell align="right">
+                  <NumericFormat value={row.amount} displayType="text" thousandSeparator prefix="₹" />
+                </TableCell>
+              </TableRow>
+            ))}
+            {bookings.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No recent bookings.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
@@ -198,6 +171,5 @@ export default function OrderTable() {
   );
 }
 
-OrderTableHead.propTypes = { order: PropTypes.any, orderBy: PropTypes.string };
-
-OrderStatus.propTypes = { status: PropTypes.number };
+OrderTable.propTypes = { bookings: PropTypes.array };
+OrderStatus.propTypes = { status: PropTypes.string };

@@ -13,14 +13,14 @@ import IncomeAreaChart from './IncomeAreaChart';
 
 // ==============================|| DEFAULT - UNIQUE VISITOR ||============================== //
 
-export default function UniqueVisitorCard() {
+export default function UniqueVisitorCard({ monthlyStats = [], weeklyStats = [] }) {
   const [view, setView] = useState('monthly'); // 'monthly' or 'weekly'
 
   return (
     <>
       <Grid container sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
         <Grid>
-          <Typography variant="h5">Unique Visitor</Typography>
+          <Typography variant="h5">Business Overview</Typography>
         </Grid>
         <Grid>
           <Stack direction="row" sx={{ alignItems: 'center' }}>
@@ -45,7 +45,7 @@ export default function UniqueVisitorCard() {
       </Grid>
       <MainCard content={false} sx={{ mt: 1.5 }}>
         <Box sx={{ pt: 1, pr: 2 }}>
-          <IncomeAreaChart view={view} />
+          <IncomeAreaChart view={view} monthlyStats={monthlyStats} weeklyStats={weeklyStats} />
         </Box>
       </MainCard>
     </>

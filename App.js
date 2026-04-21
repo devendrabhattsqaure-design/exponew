@@ -14,6 +14,7 @@ import SearchScreen from './src/screens/SearchScreen';
 import TurfDetailScreen from './src/screens/TurfDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import BookingSuccessScreen from './src/screens/BookingSuccessScreen';
+import BookingDetailScreen from './src/screens/BookingDetailScreen';
 import AttractiveBottomTab from './src/components/AttractiveBottomTab';
 import AnimatedScreenWrapper from './src/components/AnimatedScreenWrapper';
 import { AuthProvider } from './src/context/AuthContext';
@@ -58,6 +59,7 @@ export default function App() {
           <Stack.Screen name="Main" component={TabNavigator} />
           <Stack.Screen name="TurfDetail" component={TurfDetailScreen} />
           <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
+          <Stack.Screen name="BookingDetail" component={BookingDetailScreen} />
           <Stack.Screen name="Search" component={SearchScreen} />
         </Stack.Navigator>
       </NavigationContainer>

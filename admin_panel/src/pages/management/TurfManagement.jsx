@@ -38,28 +38,61 @@ export default function TurfManagement() {
     fetcher
   );
 
+  const [editMode, setEditMode] = useState(false);
+  const [selectedTurfId, setSelectedTurfId] = useState(null);
   const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    location: '', 
-    city: '', 
-    state: 'State', 
+  const [formData, setFormData] = useState({
+    name: '',
+    location: '',
+    city: '',
+    state: '',
     pricePerHour: 800,
     description: '',
     category: 'Football'
   });
 
-  const handleOpen = () => setOpen(true);
+  const handleOpen = (turf = null) => {
+    if (turf) {
+      setEditMode(true);
+      setSelectedTurfId(turf.id);
+      setFormData({
+        name: turf.name,
+        location: turf.location,
+        city: turf.city,
+        state: turf.state || 'State',
+        pricePerHour: turf.pricePerHour,
+        description: turf.description,
+        category: turf.category
+      });
+    } else {
+      setEditMode(false);
+      setSelectedTurfId(null);
+      setFormData({
+        name: '',
+        location: '',
+        city: '',
+        state: 'State',
+        pricePerHour: 800,
+        description: '',
+        category: 'Football'
+      });
+    }
+    setOpen(true);
+  };
   const handleClose = () => setOpen(false);
 
   const handleSubmit = async () => {
     try {
-      const res = await fetch(`${import.meta.env.VITE_APP_API_URL}/turfs`, {
-        method: 'POST',
+      const url = editMode
+        ? `${import.meta.env.VITE_APP_API_URL}/turfs/${selectedTurfId}`
+        : `${import.meta.env.VITE_APP_API_URL}/turfs`;
+
+      const res = await fetch(url, {
+        method: editMode ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
-      if (!res.ok) throw new Error('Failed to create turf');
+      if (!res.ok) throw new Error(`Failed to ${editMode ? 'update' : 'create'} turf`);
       mutate(`${import.meta.env.VITE_APP_API_URL}/turfs`);
       handleClose();
     } catch (err) {
@@ -67,14 +100,30 @@ export default function TurfManagement() {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this turf?')) {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_APP_API_URL}/turfs/${id}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error('Failed to delete turf');
+        mutate(`${import.meta.env.VITE_APP_API_URL}/turfs`);
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+  };
+
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', p: 5 }}><CircularProgress /></Box>;
+
+  const filteredTurfs = turfs?.filter(t => admin.role === 'SUPER_ADMIN' || t.id === admin.turfId);
 
   return (
     <MainCard
       title="Manage Turfs"
       secondary={
         admin?.role === 'SUPER_ADMIN' && (
-          <Button variant="contained" startIcon={<PlusOutlined />} size="small" onClick={handleOpen}>
+          <Button variant="contained" startIcon={<PlusOutlined />} size="small" onClick={() => handleOpen()}>
             Add New Turf
           </Button>
         )
@@ -91,7 +140,7 @@ export default function TurfManagement() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {turfs?.filter(t => admin.role === 'SUPER_ADMIN' || t.id === admin.turfId).map((row) => (
+            {filteredTurfs?.map((row) => (
               <TableRow key={row.id}>
                 <TableCell>{row.name}</TableCell>
                 <TableCell>{row.location}</TableCell>
@@ -104,32 +153,46 @@ export default function TurfManagement() {
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Edit">
-                      <IconButton size="small" color="primary">
+                      <IconButton size="small" color="primary" onClick={() => handleOpen(row)}>
                         <EditOutlined />
                       </IconButton>
                     </Tooltip>
+                    {admin?.role === 'SUPER_ADMIN' && (
+                      <Tooltip title="Delete">
+                        <IconButton size="small" color="error" onClick={() => handleDelete(row.id)}>
+                          <DeleteOutlined />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Stack>
                 </TableCell>
               </TableRow>
             ))}
+            {(!filteredTurfs || filteredTurfs.length === 0) && (
+              <TableRow>
+                <TableCell colSpan={4} align="center">
+                  No turfs found.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </TableContainer>
 
       <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm">
-        <DialogTitle>Add New Turf</DialogTitle>
+        <DialogTitle>{editMode ? 'Edit Turf Details' : 'Add New Turf'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Turf Name" fullWidth value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
-            <TextField label="Location" fullWidth value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} />
-            <TextField label="City" fullWidth value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} />
-            <TextField label="Price Per Hour" type="number" fullWidth value={formData.pricePerHour} onChange={(e) => setFormData({...formData, pricePerHour: parseInt(e.target.value)})} />
-            <TextField label="Description" multiline rows={3} fullWidth value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+            <TextField label="Turf Name" fullWidth value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+            <TextField label="Location" fullWidth value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
+            <TextField label="City" fullWidth value={formData.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
+            <TextField label="Price Per Hour" type="number" fullWidth value={formData.pricePerHour} onChange={(e) => setFormData({ ...formData, pricePerHour: parseInt(e.target.value) })} />
+            <TextField label="Description" multiline rows={3} fullWidth value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleSubmit}>Create</Button>
+          <Button variant="contained" onClick={handleSubmit}>{editMode ? 'Save Changes' : 'Create'}</Button>
         </DialogActions>
       </Dialog>
     </MainCard>

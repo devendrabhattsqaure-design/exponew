@@ -101,3 +101,86 @@ exports.createTurfAdmin = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+// Create Employee (Turf Admin only)
+exports.createEmployee = async (req, res) => {
+  try {
+    const { name, email, turfId, password } = req.body;
+    
+    // Default password if not provided
+    const userPassword = password || `${name}@emp123`;
+    const hashedPassword = await bcrypt.hash(userPassword, 10);
+
+    const admin = await prisma.adminPanelUser.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: 'EMPLOYEE',
+        turfId
+      }
+    });
+
+    res.status(201).json({
+      message: 'Employee created successfully',
+      employee: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        turfId: admin.turfId
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Get Employees for a Turf
+exports.getEmployees = async (req, res) => {
+  try {
+    const { turfId } = req.query;
+    const where = { role: 'EMPLOYEE' };
+    if (turfId) where.turfId = turfId;
+
+    const employees = await prisma.adminPanelUser.findMany({
+      where,
+      include: { turf: { select: { name: true } } }
+    });
+
+    res.json(employees);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Update Employee
+exports.updateEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email } = req.body;
+
+    const employee = await prisma.adminPanelUser.update({
+      where: { id },
+      data: { name, email }
+    });
+
+    res.json({ message: 'Employee updated successfully', employee });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Delete Employee
+exports.deleteEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.adminPanelUser.delete({
+      where: { id }
+    });
+
+    res.json({ message: 'Employee deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

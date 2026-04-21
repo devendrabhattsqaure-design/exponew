@@ -25,7 +25,7 @@ import Toast from 'react-native-toast-message';
 const BACKEND_URL = 'http://192.168.18.23:5000/api';
 
 // ─── Booking Card (memoized) ───────────────────────────────
-const BookingCard = memo(({ booking, onCancel }) => {
+const BookingCard = memo(({ booking, onPress }) => {
   const date = new Date(booking.bookingDate);
   const formattedDate = date.toLocaleDateString('en-IN', { 
     day: 'numeric', month: 'short', year: 'numeric' 
@@ -35,46 +35,40 @@ const BookingCard = memo(({ booking, onCancel }) => {
     PAID: { bg: '#10B98120', text: '#10B981' },
     CONFIRMED: { bg: '#10B98120', text: '#10B981' },
     CANCELLED: { bg: '#EF444420', text: '#EF4444' },
+    CANCEL_REQUESTED: { bg: '#F59E0B20', text: '#F59E0B' },
     PENDING: { bg: '#F59E0B20', text: '#F59E0B' },
   };
   
   const statusStyle = statusColors[booking.status] || statusColors.PAID;
-  const isCancelable = booking.status === 'CONFIRMED' || booking.status === 'PAID';
   
   return (
-    <PremiumCard style={styles.bookingCard} level="low">
-      <View style={styles.bookingRow}>
-        <View style={styles.bookingIcon}>
-          <Calendar size={20} color={Colors.primary} />
-        </View>
-        <View style={styles.bookingDetails}>
-          <Text style={styles.bookingTurf}>{booking.turf?.name || 'Turf Arena'}</Text>
-          {booking.turf?.location ? (
-            <View style={styles.bookingLocationRow}>
-              <MapPin size={11} color={Colors.onSurfaceVariant} />
-              <Text style={styles.bookingLocationText}>{booking.turf.location}</Text>
+    <TouchableOpacity onPress={() => onPress(booking)} activeOpacity={0.7}>
+      <PremiumCard style={styles.bookingCard} level="low">
+        <View style={styles.bookingRow}>
+          <View style={styles.bookingIcon}>
+            <Calendar size={20} color={Colors.primary} />
+          </View>
+          <View style={styles.bookingDetails}>
+            <Text style={styles.bookingTurf}>{booking.turf?.name || 'Turf Arena'}</Text>
+            {booking.turf?.location ? (
+              <View style={styles.bookingLocationRow}>
+                <MapPin size={11} color={Colors.onSurfaceVariant} />
+                <Text style={styles.bookingLocationText}>{booking.turf.location}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.bookingTime}>{formattedDate} • {booking.timeSlot}</Text>
+          </View>
+          <View style={styles.bookingStatus}>
+            <Text style={styles.bookingAmount}>₹{booking.amount}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+              <Text style={[styles.statusText, { color: statusStyle.text, fontSize: 9 }]}>
+                {booking.status === 'CANCEL_REQUESTED' ? 'UNDER REVIEW' : booking.status}
+              </Text>
             </View>
-          ) : null}
-          <Text style={styles.bookingTime}>{formattedDate} • {booking.timeSlot}</Text>
-          
-          {isCancelable && (
-            <TouchableOpacity 
-              style={styles.cancelBtnSmall} 
-              onPress={() => onCancel(booking.id)}
-            >
-              <X size={12} color="#EF4444" />
-              <Text style={styles.cancelBtnSmallText}>Cancel Booking</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <View style={styles.bookingStatus}>
-          <Text style={styles.bookingAmount}>₹{booking.amount}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-            <Text style={[styles.statusText, { color: statusStyle.text }]}>{booking.status}</Text>
           </View>
         </View>
-      </View>
-    </PremiumCard>
+      </PremiumCard>
+    </TouchableOpacity>
   );
 });
 
@@ -225,7 +219,7 @@ const PersonalInfoSection = memo(({ user, onSave, saving }) => {
 });
 
 // ─── Booking History Section ────────────────────────────────
-const BookingHistorySection = memo(({ bookings, loading, onCancel }) => {
+const BookingHistorySection = memo(({ bookings, loading, onPress }) => {
   if (loading) {
     return (
       <View style={styles.sectionContainer}>
@@ -244,7 +238,7 @@ const BookingHistorySection = memo(({ bookings, loading, onCancel }) => {
 
       {bookings.length > 0 ? (
         bookings.map((booking) => (
-          <BookingCard key={booking.id} booking={booking} onCancel={onCancel} />
+          <BookingCard key={booking.id} booking={booking} onPress={onPress} />
         ))
       ) : (
         <PremiumCard style={styles.emptyCard} level="low">
@@ -318,37 +312,9 @@ const ProfileScreen = ({ navigation }) => {
     }
   }, [updateUser]);
 
-  const handleCancelBooking = useCallback(async (bookingId) => {
-    Alert.alert(
-      'Cancel Booking',
-      'Are you sure you want to cancel this booking? The amount will be refunded to your wallet.',
-      [
-        { text: 'No', style: 'cancel' },
-        { 
-          text: 'Yes, Cancel', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await fetch(`${BACKEND_URL}/bookings/${bookingId}/cancel`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ reason: 'User cancelled via app' })
-              });
-              
-              if (response.ok) {
-                Toast.show({ type: 'success', text1: 'Booking Cancelled', text2: 'Refund processed to wallet' });
-                fetchUserBookings();
-              } else {
-                throw new Error('Failed to cancel booking');
-              }
-            } catch (error) {
-              Toast.show({ type: 'error', text1: 'Error', text2: error.message });
-            }
-          }
-        }
-      ]
-    );
-  }, [fetchUserBookings]);
+  const handleBookingPress = useCallback((booking) => {
+    navigation.navigate('BookingDetail', { booking });
+  }, [navigation]);
 
   const handleLogout = useCallback(async () => {
     Alert.alert(
@@ -447,7 +413,7 @@ const ProfileScreen = ({ navigation }) => {
         {activeTab === 'info' ? (
           <PersonalInfoSection user={user} onSave={handleSaveProfile} saving={saving} />
         ) : (
-          <BookingHistorySection bookings={bookings} loading={loadingBookings} onCancel={handleCancelBooking} />
+          <BookingHistorySection bookings={bookings} loading={loadingBookings} onPress={handleBookingPress} />
         )}
 
         {/* Logout Button */}

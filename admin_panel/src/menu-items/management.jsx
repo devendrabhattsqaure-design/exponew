@@ -35,6 +35,13 @@ const management = {
       type: 'item',
       url: '/manage/admins',
       icon: icons.UsergroupAddOutlined
+    },
+    {
+      id: 'employee-manage',
+      title: 'Manage Employees',
+      type: 'item',
+      url: '/manage/employees',
+      icon: icons.UsergroupAddOutlined
     }
   ]
 };

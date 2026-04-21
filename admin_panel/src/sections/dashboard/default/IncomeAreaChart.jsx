@@ -44,17 +44,18 @@ function Legend({ items, onToggle }) {
 
 // ==============================|| INCOME AREA CHART ||============================== //
 
-export default function IncomeAreaChart({ view }) {
+export default function IncomeAreaChart({ view, monthlyStats = [], weeklyStats = [] }) {
   const theme = useTheme();
 
   const [visibility, setVisibility] = useState({
-    'Page views': true,
-    Sessions: true
+    'Revenue': true,
+    'Bookings': true
   });
 
-  const labels = view === 'monthly' ? monthlyLabels : weeklyLabels;
-  const data1 = view === 'monthly' ? monthlyData1 : weeklyData1;
-  const data2 = view === 'monthly' ? monthlyData2 : weeklyData2;
+  const stats = view === 'monthly' ? monthlyStats : weeklyStats;
+  const labels = stats.map(s => view === 'monthly' ? s.month : s.day);
+  const revenueData = stats.map(s => s.revenue);
+  const bookingData = stats.map(s => s.bookings * 100); // Scale bookings for visibility on same chart or keep separate? Let's keep separate or scale.
 
   const line = theme.vars.palette.divider;
 
@@ -64,22 +65,22 @@ export default function IncomeAreaChart({ view }) {
 
   const visibleSeries = [
     {
-      data: data1,
-      label: 'Page views',
+      data: revenueData,
+      label: 'Revenue',
       showMark: false,
       area: true,
       id: 'page-views',
       color: theme.vars.palette.primary.main || '',
-      visible: visibility['Page views']
+      visible: visibility['Revenue']
     },
     {
-      data: data2,
-      label: 'Sessions',
+      data: bookingData,
+      label: 'Bookings',
       showMark: false,
       area: true,
       id: 'sessions',
-      color: theme.vars.palette.primary[700] || '',
-      visible: visibility['Sessions']
+      color: theme.vars.palette.secondary.main || '',
+      visible: visibility['Bookings']
     }
   ];
 

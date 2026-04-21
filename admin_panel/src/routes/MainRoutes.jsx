@@ -14,6 +14,7 @@ const SamplePage = Loadable(lazy(() => import('pages/extra-pages/sample-page')))
 const TurfManagement = Loadable(lazy(() => import('pages/management/TurfManagement')));
 const BookingManagement = Loadable(lazy(() => import('pages/management/BookingManagement')));
 const AdminManagement = Loadable(lazy(() => import('pages/management/AdminManagement')));
+const EmployeeManagement = Loadable(lazy(() => import('pages/management/EmployeeManagement')));
 const SlotManagement = Loadable(lazy(() => import('pages/management/SlotManagement')));
 
 // ==============================|| MAIN ROUTING ||============================== //
@@ -49,6 +50,10 @@ const MainRoutes = {
         {
           path: 'admins',
           element: <AdminManagement />
+        },
+        {
+          path: 'employees',
+          element: <EmployeeManagement />
         },
         {
           path: 'turfs/:id/slots',

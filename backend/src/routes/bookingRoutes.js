@@ -3,6 +3,7 @@ const router = express.Router();
 const bookingController = require('../controllers/bookingController');
 
 router.get('/', bookingController.getAllBookings);
+router.post('/create-order', bookingController.createRazorpayOrder);
 router.post('/', bookingController.createBooking);
 router.post('/:bookingId/cancel', bookingController.cancelBooking);
 router.post('/:bookingId/request-cancellation', bookingController.requestCancellation);

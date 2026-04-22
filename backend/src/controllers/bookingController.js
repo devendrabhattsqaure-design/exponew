@@ -1,4 +1,29 @@
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
 const prisma = require('../config/db');
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+// Create a new Razorpay order
+exports.createRazorpayOrder = async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const options = {
+      amount: Math.round(amount * 100), // amount in paise
+      currency: "INR",
+      receipt: `receipt_${Date.now()}`,
+    };
+
+    const order = await razorpay.orders.create(options);
+    res.json(order);
+  } catch (error) {
+    console.error('Razorpay Order Error:', error);
+    res.status(500).json({ error: 'Failed to create Razorpay order' });
+  }
+};
 
 // Create a new booking after successful payment
 exports.createBooking = async (req, res) => {
@@ -8,6 +33,23 @@ exports.createBooking = async (req, res) => {
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
     if (!userExists) {
       return res.status(401).json({ error: 'User session invalid. Please log out and sign in again.' });
+    }
+
+    // Verify payment signature
+    const generated_signature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(razorpayOrderId + "|" + razorpayPaymentId)
+      .digest('hex');
+
+    const isSimulation = razorpaySignature === 'mock_signature';
+
+    if (!isSimulation && generated_signature !== razorpaySignature) {
+      console.error('Signature Mismatch:', { generated_signature, razorpaySignature });
+      return res.status(400).json({ error: 'Invalid payment signature' });
+    }
+
+    if (isSimulation) {
+      console.log('✅ Processing Simulated Booking (Simulation Mode)');
     }
 
     const parsedDate = new Date(bookingDate);
@@ -20,7 +62,6 @@ exports.createBooking = async (req, res) => {
         startTime: timeSlot
       }
     });
-
     if (!slot) {
       slot = await prisma.turfSlot.create({
         data: {
@@ -32,6 +73,11 @@ exports.createBooking = async (req, res) => {
           price: amount
         }
       });
+    }
+
+    // Check if slot is already booked to prevent Unique Constraint error
+    if (slot && slot.status === 'BOOKED') {
+      return res.status(400).json({ error: 'This slot is already booked. Please choose another time.' });
     }
 
     // Update slot status to BOOKED
